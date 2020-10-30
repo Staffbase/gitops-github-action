@@ -108,6 +108,7 @@ runs:
         else
           echo "Simulate update for DEV"
           while IFS= read -r line; do
+            echo "LINE: $line"
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
             ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
           done <<< "${{ inputs.gitopsdev }}"
