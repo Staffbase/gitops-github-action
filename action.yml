@@ -30,6 +30,10 @@ inputs:
     description: 'GitHub User for GitOps'
     required: true
     default: 'Staffbot'
+  gitopsemail:
+    description: 'GitHub User for GitOps'
+    required: true
+    default: 'daniel.grosse+staffbot@staffbase.com'
   gitopstoken:
     description: 'GitHub Token for GitOps'
     required: true
@@ -81,7 +85,7 @@ runs:
     - name: Update Docker Image in Repository
       shell: bash
       run: |
-        git config --global user.email "daniel.grosse+staffbot@staffbase.com" && git config --global user.name "Staffbot"
+        git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
 
         git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git .github/${{ inputs.gitopsrepository }}
         cd .github/${{ inputs.gitopsrepository }}
@@ -108,9 +112,9 @@ runs:
         else
           echo "Simulate update for DEV"
           while IFS= read -r line; do
-            echo "LINE: $line"
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
             ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+            cat clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml
           done <<< "${{ inputs.gitopsdev }}"
         fi
 
