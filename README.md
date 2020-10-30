@@ -2,6 +2,10 @@
 
 This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.
 
+## Requirement
+
+When you want to use this GitHub Action your GitHub repository should have a `dev` and `master` / `main` branch and it should use tags for releases. For the `dev` branch we will change the files specified under `gitopsdev`. For the `master` / `main` branch we will change the files specified under `gitopsstage`. For a new tag the files under `gitopsprod` will be used.
+
 ## Usage
 
 ```yaml
