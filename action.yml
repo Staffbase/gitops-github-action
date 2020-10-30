@@ -45,7 +45,7 @@ runs:
     - name: Build and Push the Docker Image
       shell: bash
       run: |
-        echo "${{ inputs.dockerpassword }}" | docker login "${{ inputs.dockerregistry }}" -u "${{ inputs.dockerusername }}" --password-stdin
+        echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
         docker build -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }} .
 
