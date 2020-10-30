@@ -1,21 +1,54 @@
 name: 'Hello World'
 description: 'Greet someone'
 inputs:
-  who-to-greet:
-    description: 'Who to greet'
+  registry:
+    description: 'Docker Registry'
     required: true
-    default: 'World'
-outputs:
-  random-number:
-    description: "Random number"
-    value: ${{ steps.random-number-generator.outputs.random-id }}
+  username:
+    description: 'Username for the Docker Registry'
+    required: true
+  password:
+    description: 'Password for the Docker Registry'
+    required: true
+  dockerfile:
+    description: 'Dockerfile'
+    required: true
+    default: './Dockerfile'
 runs:
   using: "composite"
   steps:
-    - run: echo Hello ${{ inputs.who-to-greet }}.
+    - name: Generate Tags
+      id: preparation
       shell: bash
-    - id: random-number-generator
-      run: echo "::set-output name=random-id::$(echo $RANDOM)"
-      shell: bash
-    - run: ${{ github.action_path }}/goodbye.sh
-      shell: bash
+      run: |
+        if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
+          TAGS="${DOCKER_IMAGE}:master-${GITHUB_SHA::8},${DOCKER_IMAGE}:latest"
+          PUSH="true"
+        elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+          TAGS="${DOCKER_IMAGE}:dev-${GITHUB_SHA::8}"
+          PUSH="true"
+        else
+          TAGS="${DOCKER_IMAGE}:${GITHUB_SHA::8}"
+          PUSH="false"
+        fi
+        echo ::set-output name=tags::${TAGS}
+        echo ::set-output name=push::${PUSH}
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Login to the Docker Registry
+      if: ${{ steps.preparation.outputs.push == 'true' }}
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        file: ${{ inputs.dockerfile }}
+        push: ${{ steps.preparation.outputs.push }}
+        tags: ${{ steps.preparation.outputs.tags }}
