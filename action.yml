@@ -84,8 +84,10 @@ runs:
         git config --global user.email "daniel.grosse+staffbot@staffbase.com" && git config --global user.name "Staffbot"
 
         git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
+        ls -la
         cd ${{ inputs.gitopsrepository }}
         echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully"
+        ls -la
 
         if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
           echo "Run update for STAGE"
