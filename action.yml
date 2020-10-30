@@ -1,5 +1,5 @@
-name: 'Hello World'
-description: 'Greet someone'
+name: 'GitOps'
+description: 'This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.'
 inputs:
   dockerregistry:
     description: 'Docker Registry'
@@ -18,6 +18,31 @@ inputs:
     description: 'Dockerfile'
     required: true
     default: './Dockerfile'
+  gitopsorganization:
+    description: 'GitHub Organization for GitOps'
+    required: true
+    default: 'Staffbase'
+  gitopsrepository:
+    description: 'GitHub Repository for GitOps'
+    required: true
+    default: 'mops'
+  gitopsuser:
+    description: 'GitHub User for GitOps'
+    required: true
+    default: 'Staffbot'
+  gitopstoken:
+    description: 'GitHub Token for GitOps'
+    required: true
+    default: 'github.com/Staffbase/mops'
+  gitopsdev:
+    description: 'Files which should be updated by the GitHub Action for DEV'
+    required: true
+  gitopsstage:
+    description: 'Files which should be updated by the GitHub Action for STAGE'
+    required: true
+  gitopsprod:
+    description: 'Files which should be updated by the GitHub Action for PROD'
+    required: true
 runs:
   using: "composite"
   steps:
@@ -51,4 +76,34 @@ runs:
 
         if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
           docker push ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+        fi
+
+    - name: Update Docker Image in Repository
+      shell: bash
+      run: |
+        git config --global user.email "daniel.grosse+staffbot@staffbase.com" && git config --global user.name "Staffbot"
+
+        git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
+        cd ${{ inputs.gitopsrepository }}
+
+        if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
+          while IFS= read -r line; do
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+            ../yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+          done <<< "${{ inputs.gitopsstage }}"
+        elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+          while IFS= read -r line; do
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+            ../yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+          done <<< "${{ inputs.gitopsdev }}"
+        elif [[ $GITHUB_REF == refs/tags/* ]]; then
+          while IFS= read -r line; do
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+            ../yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+          done <<< "${{ inputs.gitopsprod }}"
+        fi
+
+        if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
+          git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+          git push https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
         fi
