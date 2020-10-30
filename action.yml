@@ -38,18 +38,17 @@ runs:
           TAGS="${GITHUB_SHA::8}"
           PUSH="false"
         fi
+
         echo ::set-output name=tags::${TAGS}
         echo ::set-output name=push::${PUSH}
-
-    - name: Login to the Docker Registry
-      shell: bash
-      run: |
-        docker login "${{ inputs.dockerregistry }}" -u "${{ inputs.dockerusername }}" --password-stdin <<< "${{ inputs.dockerpassword }}"
 
     - name: Build and Push the Docker Image
       shell: bash
       run: |
+        docker login "${{ inputs.dockerregistry }}" -u "${{ inputs.dockerusername }}" --password-stdin <<< "${{ inputs.dockerpassword }}"
+
         docker build -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }} .
+
         if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
           docker push ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
         fi
