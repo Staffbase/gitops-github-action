@@ -85,22 +85,32 @@ runs:
 
         git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
         cd ${{ inputs.gitopsrepository }}
+        echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully"
 
         if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
+          echo "Run update for STAGE"
           while IFS= read -r line; do
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
             ../yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
           done <<< "${{ inputs.gitopsstage }}"
         elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+          echo "Run update for DEV"
           while IFS= read -r line; do
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
             ../yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
           done <<< "${{ inputs.gitopsdev }}"
         elif [[ $GITHUB_REF == refs/tags/* ]]; then
+          echo "Run update for PROD"
           while IFS= read -r line; do
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
             ../yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
           done <<< "${{ inputs.gitopsprod }}"
+        else
+          echo "Simulate update for DEV"
+          while IFS= read -r line; do
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+            ../yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+          done <<< "${{ inputs.gitopsdev }}"
         fi
 
         if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
