@@ -1,13 +1,13 @@
 name: 'Hello World'
 description: 'Greet someone'
 inputs:
-  registry:
+  dockerregistry:
     description: 'Docker Registry'
     required: true
-  username:
+  dockerusername:
     description: 'Username for the Docker Registry'
     required: true
-  password:
+  dockerpassword:
     description: 'Password for the Docker Registry'
     required: true
   dockerfile:
@@ -41,9 +41,9 @@ runs:
       if: ${{ steps.preparation.outputs.push == 'true' }}
       uses: docker/login-action@v1
       with:
-        registry: ${{ inputs.registry }}
-        username: ${{ inputs.username }}
-        password: ${{ inputs.password }}
+        registry: ${{ inputs.dockerregistry }}
+        username: ${{ inputs.dockerusername }}
+        password: ${{ inputs.dockerpassword }}
 
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v2
