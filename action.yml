@@ -37,7 +37,6 @@ inputs:
   gitopstoken:
     description: 'GitHub Token for GitOps'
     required: true
-    default: 'github.com/Staffbase/mops'
   gitopsdev:
     description: 'Files which should be updated by the GitHub Action for DEV'
     required: true
@@ -114,7 +113,6 @@ runs:
           while IFS= read -r line; do
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
             ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
-            cat clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml
           done <<< "${{ inputs.gitopsdev }}"
         fi
 

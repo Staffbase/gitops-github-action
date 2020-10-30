@@ -4,16 +4,65 @@ This GitHub Action can be used for our GitOps workflow. The GitHub Action will b
 
 ## Usage
 
-```sh
+```yaml
+name: Redbook CI/CD
+
+on: [push]
+
+jobs:
+  ci-cd:
+    name: Build, Push and Deploy
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # Checkout our GitHub Action for GitOps.
       - uses: actions/checkout@v2
         with:
           repository: Staffbase/gitops-github-action
-          ref: dia-1232-initial-development
+          ref: v1
+          # The GITOPS_TOKEN is available as organization secret.
           token: ${{ secrets.GITOPS_TOKEN }}
+          # It's important that you clone the repository into the .github/gitops path, because the GitHub Action has a hard dependency on this path.
           path: .github/gitops
 
-      - name: Private Action
+      # Run the GitOps GitHub Action which builds and pushs the Docker image and then updates the deployment in the mops repository.
+      - name: GitOps (build, push and deploy a new Docker image)
+        # Here we are referencing the cloned GitHub Action.
         uses: ./.github/gitops
+        # The DOCKER_USERNAME, DOCKER_PASSWORD and GITOPS_TOKEN secrets are available as organization secret.
         with:
-          who-to-greet: 'Rico'
+          dockerusername: ${{ secrets.DOCKER_USERNAME }}
+          dockerpassword: ${{ secrets.DOCKER_PASSWORD }}
+          # This is the name of the Docker image for your service.
+          dockerimage: private/diablo-redbook
+          gitopstoken: ${{ secrets.GITOPS_TOKEN }}
+          # The gitopsdev, gitopsstage and gitopsprod values are used to specify which files including the YAML path which should be updated with the new image.
+          # ATTENTION 1: You must use |- to remove the final newline in the string, otherwise the GitHub Action will fail.
+          # ATTENTION 2: The file path must be relative to the root of the GitOps repository (default: Staffbase/mops).
+          gitopsdev: |-
+            clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.values.template.spec.containers.redbook.image
+          gitopsstage: |-
+            clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.values.template.spec.containers.redbook.image
+          gitopsprod: |-
+            clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.values.template.spec.containers.redbook.image
 ```
+
+## Inputs
+
+| Name | Description | Default |
+| ---- | ----------- | ------- |
+| `dockerregistry` | Docker Registry | `registry.staffbase.com`|
+| `dockerimage` | Docker Image | |
+| `dockerusername` | Username for the Docker Registry | |
+| `dockerpassword` | Password for the Docker Registry | |
+| `dockerfile` | Dockerfile | `./Dockerfile` |
+| `gitopsorganization` | GitHub Organization for GitOps | `Staffbase` |
+| `gitopsrepository` | GitHub Repository for GitOps | `mops` |
+| `gitopsuser` | GitHub User for GitOps | `Staffbot` |
+| `gitopsemail` | GitHub User for GitOps | `daniel.grosse+staffbot@staffbase.com` |
+| `gitopstoken` | GitHub Token for GitOps | |
+| `gitopsdev` | Files which should be updated by the GitHub Action for DEV | |
+| `gitopsstage` | Files which should be updated by the GitHub Action for STAGE | |
+| `gitopsprod` | Files which should be updated by the GitHub Action for PROD | |
