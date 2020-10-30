@@ -51,6 +51,13 @@ jobs:
             clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.values.template.spec.containers.redbook.image
           gitopsprod: |-
             clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.values.template.spec.containers.redbook.image
+          # You can also update multiple file or multiple images in one file.
+          # The following example updates the Varnish image in the production cluster for main-de1 and main-us1. It also updates two images one is used for the init container and the other one for the normal container.
+          # gitopsprod: |-
+          #   clusters/customization/prod/main-de1/mediaserver/varnish-helm.yaml spec.values.template.spec.initContainers.config.image
+          #   clusters/customization/prod/main-de1/mediaserver/varnish-helm.yaml spec.values.template.spec.containers.varnish.image
+          #   clusters/customization/prod/main-us1/mediaserver/varnish-helm.yaml spec.values.template.spec.initContainers.config.image
+          #   clusters/customization/prod/main-us1/mediaserver/varnish-helm.yaml spec.values.template.spec.containers.varnish.image
 ```
 
 ## Inputs
