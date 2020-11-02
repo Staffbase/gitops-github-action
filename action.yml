@@ -1,0 +1,122 @@
+name: 'GitOps'
+description: 'This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.'
+inputs:
+  dockerregistry:
+    description: 'Docker Registry'
+    required: true
+    default: 'registry.staffbase.com'
+  dockerimage:
+    description: 'Docker Image'
+    required: true
+  dockerusername:
+    description: 'Username for the Docker Registry'
+    required: true
+  dockerpassword:
+    description: 'Password for the Docker Registry'
+    required: true
+  dockerfile:
+    description: 'Dockerfile'
+    required: true
+    default: './Dockerfile'
+  gitopsorganization:
+    description: 'GitHub Organization for GitOps'
+    required: true
+    default: 'Staffbase'
+  gitopsrepository:
+    description: 'GitHub Repository for GitOps'
+    required: true
+    default: 'mops'
+  gitopsuser:
+    description: 'GitHub User for GitOps'
+    required: true
+    default: 'Staffbot'
+  gitopsemail:
+    description: 'GitHub User for GitOps'
+    required: true
+    default: 'daniel.grosse+staffbot@staffbase.com'
+  gitopstoken:
+    description: 'GitHub Token for GitOps'
+    required: true
+  gitopsdev:
+    description: 'Files which should be updated by the GitHub Action for DEV'
+    required: true
+  gitopsstage:
+    description: 'Files which should be updated by the GitHub Action for STAGE'
+    required: true
+  gitopsprod:
+    description: 'Files which should be updated by the GitHub Action for PROD'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Generate Tags
+      id: preparation
+      shell: bash
+      run: |
+        if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
+          TAGS="master-${GITHUB_SHA::8}"
+          PUSH="true"
+        elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+          TAGS="dev-${GITHUB_SHA::8}"
+          PUSH="true"
+        elif [[ $GITHUB_REF == refs/tags/* ]]; then
+          TAGS="${GITHUB_REF:10}"
+          PUSH="true"
+        else
+          TAGS="${GITHUB_SHA::8}"
+          PUSH="false"
+        fi
+
+        echo ::set-output name=tags::${TAGS}
+        echo ::set-output name=push::${PUSH}
+
+    - name: Build and Push the Docker Image
+      shell: bash
+      run: |
+        echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
+
+        docker build -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }} .
+
+        if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
+          docker push ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+        fi
+
+    - name: Update Docker Image in Repository
+      shell: bash
+      run: |
+        git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
+
+        git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git .github/${{ inputs.gitopsrepository }}
+        cd .github/${{ inputs.gitopsrepository }}
+        echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully "
+
+        if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
+          echo "Run update for STAGE"
+          while IFS= read -r line; do
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+          done <<< "${{ inputs.gitopsstage }}"
+        elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+          echo "Run update for DEV"
+          while IFS= read -r line; do
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+          done <<< "${{ inputs.gitopsdev }}"
+        elif [[ $GITHUB_REF == refs/tags/* ]]; then
+          echo "Run update for PROD"
+          while IFS= read -r line; do
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+          done <<< "${{ inputs.gitopsprod }}"
+        else
+          echo "Simulate update for DEV"
+          while IFS= read -r line; do
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+          done <<< "${{ inputs.gitopsdev }}"
+        fi
+
+        if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
+          git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+          git push https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
+        fi
