@@ -46,18 +46,18 @@ jobs:
           # ATTENTION 1: You must use |- to remove the final newline in the string, otherwise the GitHub Action will fail.
           # ATTENTION 2: The file path must be relative to the root of the GitOps repository (default: Staffbase/mops).
           gitopsdev: |-
-            clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.values.template.spec.containers.redbook.image
+            clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
           gitopsstage: |-
-            clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.values.template.spec.containers.redbook.image
+            clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
           gitopsprod: |-
-            clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.values.template.spec.containers.redbook.image
+            clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
           # You can also update multiple file or multiple images in one file.
           # The following example updates the Varnish image in the production cluster for main-de1 and main-us1. It also updates two images one is used for the init container and the other one for the normal container.
           # gitopsprod: |-
-          #   clusters/customization/prod/main-de1/mediaserver/varnish-helm.yaml spec.values.template.spec.initContainers.config.image
-          #   clusters/customization/prod/main-de1/mediaserver/varnish-helm.yaml spec.values.template.spec.containers.varnish.image
-          #   clusters/customization/prod/main-us1/mediaserver/varnish-helm.yaml spec.values.template.spec.initContainers.config.image
-          #   clusters/customization/prod/main-us1/mediaserver/varnish-helm.yaml spec.values.template.spec.containers.varnish.image
+          #   clusters/customization/prod/main-de1/mediaserver/varnish-helm.yaml spec.template.spec.initContainers.config.image
+          #   clusters/customization/prod/main-de1/mediaserver/varnish-helm.yaml spec.template.spec.containers.varnish.image
+          #   clusters/customization/prod/main-us1/mediaserver/varnish-helm.yaml spec.template.spec.initContainers.config.image
+          #   clusters/customization/prod/main-us1/mediaserver/varnish-helm.yaml spec.template.spec.containers.varnish.image
 ```
 
 ## Inputs
