@@ -78,13 +78,7 @@ runs:
       run: |
         echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
-        buildArgString=""
-        IFS=',' read -ra ARGS <<< ${{ inputs.dockerbuildargs }}
-        for arg in "${ARGS[@]}"; do
-            buildArgString="$buildArgString --build-arg $arg"
-        done
-
-        docker build $buildArgString -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }} .
+        docker build ${{ inputs.dockerbuildargs }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }} .
 
         if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
           docker push ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
