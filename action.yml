@@ -19,7 +19,7 @@ inputs:
     required: true
     default: './Dockerfile'
   dockerbuildargs:
-    description: 'Comma separated List of Docker Build Arguments'
+    description: 'List of Docker Build Arguments like: "--build-arg ARG1=one --build-arg ARG2=two"'
     required: false
   gitopsorganization:
     description: 'GitHub Organization for GitOps'
