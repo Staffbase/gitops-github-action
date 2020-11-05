@@ -41,6 +41,8 @@ jobs:
           dockerpassword: ${{ secrets.DOCKER_PASSWORD }}
           # This is the name of the Docker image for your service.
           dockerimage: private/diablo-redbook
+          # The arguments you need to build the docker image
+          dockerbuildargs: "--build-arg ARG1='one' --build-arg ARG2='two'"
           gitopstoken: ${{ secrets.GITOPS_TOKEN }}
           # The gitopsdev, gitopsstage and gitopsprod values are used to specify which files including the YAML path which should be updated with the new image.
           # ATTENTION 1: You must use |- to remove the final newline in the string, otherwise the GitHub Action will fail.
@@ -69,6 +71,7 @@ jobs:
 | `dockerusername` | Username for the Docker Registry | |
 | `dockerpassword` | Password for the Docker Registry | |
 | `dockerfile` | Dockerfile | `./Dockerfile` |
+| `dockerbuildargs` | Docker Build Argument String | |
 | `gitopsorganization` | GitHub Organization for GitOps | `Staffbase` |
 | `gitopsrepository` | GitHub Repository for GitOps | `mops` |
 | `gitopsuser` | GitHub User for GitOps | `Staffbot` |
