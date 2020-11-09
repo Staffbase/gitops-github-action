@@ -62,6 +62,9 @@ runs:
         elif [[ $GITHUB_REF == refs/heads/dev ]]; then
           TAGS="dev-${GITHUB_SHA::8}"
           PUSH="true"
+        elif [[ $GITHUB_REF == refs/tags/v* ]]; then
+          TAGS="${GITHUB_REF:11}"
+          PUSH="true"
         elif [[ $GITHUB_REF == refs/tags/* ]]; then
           TAGS="${GITHUB_REF:10}"
           PUSH="true"
