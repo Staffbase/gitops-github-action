@@ -57,23 +57,28 @@ runs:
       shell: bash
       run: |
         if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
-          TAGS="master-${GITHUB_SHA::8}"
+          TAG="master-${GITHUB_SHA::8}"
+          LATEST="master"
           PUSH="true"
         elif [[ $GITHUB_REF == refs/heads/dev ]]; then
-          TAGS="dev-${GITHUB_SHA::8}"
+          TAG="dev-${GITHUB_SHA::8}"
+          LATEST="dev"
           PUSH="true"
         elif [[ $GITHUB_REF == refs/tags/v* ]]; then
-          TAGS="${GITHUB_REF:11}"
+          TAG="${GITHUB_REF:11}"
+          LATEST="latest"
           PUSH="true"
         elif [[ $GITHUB_REF == refs/tags/* ]]; then
-          TAGS="${GITHUB_REF:10}"
+          TAG="${GITHUB_REF:10}"
+          LATEST="latest"
           PUSH="true"
         else
-          TAGS="${GITHUB_SHA::8}"
+          TAG="${GITHUB_SHA::8}"
           PUSH="false"
         fi
 
-        echo ::set-output name=tags::${TAGS}
+        echo ::set-output name=tag::${TAG}
+        echo ::set-output name=latest::${LATEST}
         echo ::set-output name=push::${PUSH}
 
     - name: Build and Push the Docker Image
@@ -81,10 +86,14 @@ runs:
       run: |
         echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
-        docker build ${{ inputs.dockerbuildargs }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }} .
+        docker build ${{ inputs.dockerbuildargs }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
+
+        if [[ ! -z "${{ steps.preparation.outputs.latest }}" ]]; then
+          docker tag ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.latest }}
+        fi
 
         if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-          docker push ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+          docker push ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}
         fi
 
     - name: Update Docker Image in Repository
@@ -99,30 +108,30 @@ runs:
         if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
           echo "Run update for STAGE"
           while IFS= read -r line; do
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
-            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
           done <<< "${{ inputs.gitopsstage }}"
         elif [[ $GITHUB_REF == refs/heads/dev ]]; then
           echo "Run update for DEV"
           while IFS= read -r line; do
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
-            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
           done <<< "${{ inputs.gitopsdev }}"
         elif [[ $GITHUB_REF == refs/tags/* ]]; then
           echo "Run update for PROD"
           while IFS= read -r line; do
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
-            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
           done <<< "${{ inputs.gitopsprod }}"
         else
           echo "Simulate update for DEV"
           while IFS= read -r line; do
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
-            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
           done <<< "${{ inputs.gitopsdev }}"
         fi
 
         if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-          git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tags }}"
+          git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
           git push https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
         fi
