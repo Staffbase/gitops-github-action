@@ -52,7 +52,7 @@ inputs:
   workingdirectory:
     description: 'The directory (as a path relative to the repo root dir) in which the GitOps action should be executed. The dockerfile variable should be relative to workingdirectory.'
     required: false
-    default: ''
+    default: '.'
 runs:
   using: "composite"
   steps:
@@ -89,6 +89,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.workingdirectory }}
       run: |
+        echo PWD $(pwd)
         echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
         docker build ${{ inputs.dockerbuildargs }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
