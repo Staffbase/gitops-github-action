@@ -54,9 +54,6 @@ inputs:
     required: false
     default: ''
 
-defaults:
-  run:
-    working-directory: ${{ github.workspace }}/${{ inputs.workingdirectory }}
 runs:
   using: "composite"
   steps:
@@ -91,6 +88,7 @@ runs:
 
     - name: Build and Push the Docker Image
       shell: bash
+      working-directory: ${{ github.workspace }}/${{ inputs.workingdirectory }}
       run: |
         echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
