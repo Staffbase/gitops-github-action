@@ -89,7 +89,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.workingdirectory }}
       run: |
-        echo PWD $(pwd)
+        echo The working directory is $(pwd)
         echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
         docker build ${{ inputs.dockerbuildargs }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
