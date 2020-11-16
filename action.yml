@@ -49,6 +49,14 @@ inputs:
   gitopsprod:
     description: 'Files which should be updated by the GitHub Action for PROD'
     required: true
+  workingdirectory:
+    description: 'The directory in which the GitOps action should be executed. A relative path without leading `./`. The dockerfile variable should be relative to workingdirectory.'
+    required: false
+    default: ''
+
+defaults:
+  run:
+    working-directory: ${{ github.workspace }}/${{ inputs.workingdirectory }}
 runs:
   using: "composite"
   steps:
