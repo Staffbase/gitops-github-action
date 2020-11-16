@@ -53,7 +53,9 @@ inputs:
     description: 'The directory in which the GitOps action should be executed. A relative path without leading `./`. The dockerfile variable should be relative to workingdirectory.'
     required: false
     default: ''
-
+defaults:
+  run:
+    working-directory: ${{ inputs.workingdirectory }}
 runs:
   using: "composite"
   steps:
@@ -89,7 +91,6 @@ runs:
     - name: Build and Push the Docker Image
       shell: bash
       run: |
-        cd ${{ github.workspace }}/${{ inputs.workingdirectory }}
         echo PWD `pwd`
         echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
