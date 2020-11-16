@@ -50,7 +50,7 @@ inputs:
     description: 'Files which should be updated by the GitHub Action for PROD'
     required: true
   workingdirectory:
-    description: 'The directory in which the GitOps action should be executed. A relative path without leading `./`. The dockerfile variable should be relative to workingdirectory.'
+    description: 'The directory (as a path relative to the repo root dir) in which the GitOps action should be executed. The dockerfile variable should be relative to workingdirectory.'
     required: false
     default: ''
 runs:
