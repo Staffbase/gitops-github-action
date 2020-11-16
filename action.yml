@@ -53,6 +53,9 @@ inputs:
     description: 'The directory in which the GitOps action should be executed. A relative path without leading `./`. The dockerfile variable should be relative to workingdirectory.'
     required: false
     default: ''
+defaults:
+  run:
+    working-directory: ${{ inputs.workingdirectory }}
 runs:
   using: "composite"
   steps:
@@ -86,7 +89,6 @@ runs:
         echo ::set-output name=push::${PUSH}
 
     - name: Build and Push the Docker Image
-      working-directory: ${{ inputs.workingdirectory }}
       shell: bash
       run: |
         echo PWD `pwd`
