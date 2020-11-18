@@ -80,3 +80,4 @@ jobs:
 | `gitopsdev` | Files which should be updated by the GitHub Action for DEV | |
 | `gitopsstage` | Files which should be updated by the GitHub Action for STAGE | |
 | `gitopsprod` | Files which should be updated by the GitHub Action for PROD | |
+| `workingdirectory` | The directory in which the GitOps action should be executed. The dockerfile variable should be relative to working directory. | `.` |
