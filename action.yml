@@ -49,6 +49,10 @@ inputs:
   gitopsprod:
     description: 'Files which should be updated by the GitHub Action for PROD'
     required: true
+  workingdirectory:
+    description: 'The directory (as a path relative to the repo root dir) in which the GitOps action should be executed. The dockerfile variable should be relative to workingdirectory.'
+    required: false
+    default: '.'
 runs:
   using: "composite"
   steps:
@@ -83,7 +87,9 @@ runs:
 
     - name: Build and Push the Docker Image
       shell: bash
+      working-directory: ${{ inputs.workingdirectory }}
       run: |
+        echo The working directory is $(pwd)
         echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
         docker build ${{ inputs.dockerbuildargs }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
