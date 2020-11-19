@@ -1,6 +1,10 @@
 name: 'GitOps'
 description: 'This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.'
 inputs:
+  dockerenabled:
+    description: 'Build and push the Docker Image'
+    required: true
+    default: 'true'
   dockerregistry:
     description: 'Docker Registry'
     required: true
@@ -21,6 +25,10 @@ inputs:
   dockerbuildargs:
     description: 'List of Docker Build Arguments like: "--build-arg ARG1=one --build-arg ARG2=two"'
     required: false
+  gitopsenabled:
+    description: 'Update manifest files in the GitOps repository'
+    required: true
+    default: 'true'
   gitopsorganization:
     description: 'GitHub Organization for GitOps'
     required: true
@@ -89,55 +97,59 @@ runs:
       shell: bash
       working-directory: ${{ inputs.workingdirectory }}
       run: |
-        echo The working directory is $(pwd)
-        echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
+        if [[ ${{ inputs.dockerenabled }} == "true" ]]; then
+          echo The working directory is $(pwd)
+          echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
-        docker build ${{ inputs.dockerbuildargs }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
+          docker build ${{ inputs.dockerbuildargs }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
 
-        if [[ ! -z "${{ steps.preparation.outputs.latest }}" ]]; then
-          docker tag ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.latest }}
-        fi
+          if [[ ! -z "${{ steps.preparation.outputs.latest }}" ]]; then
+            docker tag ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.latest }}
+          fi
 
-        if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-          docker push ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}
+          if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
+            docker push ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}
+          fi
         fi
 
     - name: Update Docker Image in Repository
       shell: bash
       run: |
-        git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
+        if [[ ${{ inputs.gitopsenabled }} == "true" ]]; then
+          git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
 
-        git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git .github/${{ inputs.gitopsrepository }}
-        cd .github/${{ inputs.gitopsrepository }}
-        echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully "
+          git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git .github/${{ inputs.gitopsrepository }}
+          cd .github/${{ inputs.gitopsrepository }}
+          echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully "
 
-        if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
-          echo "Run update for STAGE"
-          while IFS= read -r line; do
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-          done <<< "${{ inputs.gitopsstage }}"
-        elif [[ $GITHUB_REF == refs/heads/dev ]]; then
-          echo "Run update for DEV"
-          while IFS= read -r line; do
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-          done <<< "${{ inputs.gitopsdev }}"
-        elif [[ $GITHUB_REF == refs/tags/* ]]; then
-          echo "Run update for PROD"
-          while IFS= read -r line; do
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-          done <<< "${{ inputs.gitopsprod }}"
-        else
-          echo "Simulate update for DEV"
-          while IFS= read -r line; do
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-          done <<< "${{ inputs.gitopsdev }}"
-        fi
+          if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
+            echo "Run update for STAGE"
+            while IFS= read -r line; do
+              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+            done <<< "${{ inputs.gitopsstage }}"
+          elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+            echo "Run update for DEV"
+            while IFS= read -r line; do
+              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+            done <<< "${{ inputs.gitopsdev }}"
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "Run update for PROD"
+            while IFS= read -r line; do
+              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+            done <<< "${{ inputs.gitopsprod }}"
+          else
+            echo "Simulate update for DEV"
+            while IFS= read -r line; do
+              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+            done <<< "${{ inputs.gitopsdev }}"
+          fi
 
-        if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-          git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-          git push https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
+          if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
+            git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            git push https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
+          fi
         fi
