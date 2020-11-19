@@ -66,12 +66,14 @@ jobs:
 
 | Name | Description | Default |
 | ---- | ----------- | ------- |
+| `dockerenabled` | Build and push the Docker Image | `true` |
 | `dockerregistry` | Docker Registry | `registry.staffbase.com`|
 | `dockerimage` | Docker Image | |
 | `dockerusername` | Username for the Docker Registry | |
 | `dockerpassword` | Password for the Docker Registry | |
 | `dockerfile` | Dockerfile | `./Dockerfile` |
 | `dockerbuildargs` | Docker Build Argument String | |
+| `gitopsenabled` | Update the manifest files in the GitOps repository | `true` |
 | `gitopsorganization` | GitHub Organization for GitOps | `Staffbase` |
 | `gitopsrepository` | GitHub Repository for GitOps | `mops` |
 | `gitopsuser` | GitHub User for GitOps | `Staffbot` |
