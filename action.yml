@@ -22,8 +22,8 @@ inputs:
     description: 'Dockerfile'
     required: true
     default: './Dockerfile'
-  dockerbuildargs:
-    description: 'List of Docker Build Arguments like: "--build-arg ARG1=one --build-arg ARG2=two"'
+  dockeradditionalbuildparams:
+    description: 'List of Docker Build Parameters like: "--target runtime --build-arg ARG1=one --build-arg ARG2=two"'
     required: false
   gitopsenabled:
     description: 'Update manifest files in the GitOps repository'
@@ -101,7 +101,7 @@ runs:
           echo The working directory is $(pwd)
           echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
-          docker build ${{ inputs.dockerbuildargs }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
+          docker build ${{ inputs.dockerbuildadditionalparameters }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
 
           if [[ ! -z "${{ steps.preparation.outputs.latest }}" ]]; then
             docker tag ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.latest }}
