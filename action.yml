@@ -101,7 +101,7 @@ runs:
           echo The working directory is $(pwd)
           echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
 
-          docker build ${{ inputs.dockerbuildadditionalparameters }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
+          docker build ${{ inputs.dockeradditionalbuildparams }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
 
           if [[ ! -z "${{ steps.preparation.outputs.latest }}" ]]; then
             docker tag ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.latest }}
