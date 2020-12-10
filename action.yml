@@ -125,24 +125,32 @@ runs:
           if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
             echo "Run update for STAGE"
             while IFS= read -r line; do
+              echo "Check if path $line exists and get old current version"
+              ../gitops/yq r -e $line
               echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
               ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
             done <<< "${{ inputs.gitopsstage }}"
           elif [[ $GITHUB_REF == refs/heads/dev ]]; then
             echo "Run update for DEV"
             while IFS= read -r line; do
+              echo "Check if path $line exists and get old current version"
+              ../gitops/yq r -e $line
               echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
               ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
             done <<< "${{ inputs.gitopsdev }}"
           elif [[ $GITHUB_REF == refs/tags/* ]]; then
             echo "Run update for PROD"
             while IFS= read -r line; do
+              echo "Check if path $line exists and get old current version"
+              ../gitops/yq r -e $line
               echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
               ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
             done <<< "${{ inputs.gitopsprod }}"
           else
             echo "Simulate update for DEV"
             while IFS= read -r line; do
+              echo "Check if path $line exists and get old current version"
+              ../gitops/yq r -e $line
               echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
               ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
             done <<< "${{ inputs.gitopsdev }}"
