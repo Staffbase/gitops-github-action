@@ -158,6 +158,7 @@ runs:
 
           if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
             git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            git pull --rebase https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git # in case there was another push in the meantime
             git push https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
           fi
         fi
