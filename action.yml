@@ -108,7 +108,7 @@ runs:
           fi
 
           if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-            docker push ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}
+            docker push --all-tags ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}
           fi
         fi
 
