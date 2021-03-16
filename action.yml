@@ -44,7 +44,7 @@ inputs:
   gitopsemail:
     description: 'GitHub User for GitOps'
     required: true
-    default: 'daniel.grosse+staffbot@staffbase.com'
+    default: 'staffbot@staffbase.com'
   gitopstoken:
     description: 'GitHub Token for GitOps'
     required: true
