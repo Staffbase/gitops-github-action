@@ -50,13 +50,13 @@ inputs:
     required: true
   gitopsdev:
     description: 'Files which should be updated by the GitHub Action for DEV'
-    required: true
+    required: false
   gitopsstage:
     description: 'Files which should be updated by the GitHub Action for STAGE'
-    required: true
+    required: false
   gitopsprod:
     description: 'Files which should be updated by the GitHub Action for PROD'
-    required: true
+    required: false
   workingdirectory:
     description: 'The directory (as a path relative to the repo root dir) in which the GitOps action should be executed. The dockerfile variable should be relative to workingdirectory.'
     required: false
@@ -123,37 +123,45 @@ runs:
           echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully "
 
           if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
-            echo "Run update for STAGE"
-            while IFS= read -r line; do
-              echo "Check if path $line exists and get old current version"
-              ../gitops/yq r -e $line
-              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-            done <<< "${{ inputs.gitopsstage }}"
+            if [[ ! -z "${{ inputs.gitopsstage }}" ]]; then
+              echo "Run update for STAGE"
+              while IFS= read -r line; do
+                echo "Check if path $line exists and get old current version"
+                ../gitops/yq r -e $line
+                echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+                ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+              done <<< "${{ inputs.gitopsstage }}"
+            fi
           elif [[ $GITHUB_REF == refs/heads/dev ]]; then
-            echo "Run update for DEV"
-            while IFS= read -r line; do
-              echo "Check if path $line exists and get old current version"
-              ../gitops/yq r -e $line
-              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-            done <<< "${{ inputs.gitopsdev }}"
+            if [[ ! -z "${{ inputs.gitopsdev }}" ]]; then
+              echo "Run update for DEV"
+              while IFS= read -r line; do
+                echo "Check if path $line exists and get old current version"
+                ../gitops/yq r -e $line
+                echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+                ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+              done <<< "${{ inputs.gitopsdev }}"
+            fi
           elif [[ $GITHUB_REF == refs/tags/* ]]; then
-            echo "Run update for PROD"
-            while IFS= read -r line; do
-              echo "Check if path $line exists and get old current version"
-              ../gitops/yq r -e $line
-              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-            done <<< "${{ inputs.gitopsprod }}"
+            if [[ ! -z "${{ inputs.gitopsprod }}" ]]; then
+              echo "Run update for PROD"
+              while IFS= read -r line; do
+                echo "Check if path $line exists and get old current version"
+                ../gitops/yq r -e $line
+                echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+                ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+              done <<< "${{ inputs.gitopsprod }}"
+            fi
           else
-            echo "Simulate update for DEV"
-            while IFS= read -r line; do
-              echo "Check if path $line exists and get old current version"
-              ../gitops/yq r -e $line
-              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-            done <<< "${{ inputs.gitopsdev }}"
+            if [[ ! -z "${{ inputs.gitopsdev }}" ]]; then
+              echo "Simulate update for DEV"
+              while IFS= read -r line; do
+                echo "Check if path $line exists and get old current version"
+                ../gitops/yq r -e $line
+                echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+                ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+              done <<< "${{ inputs.gitopsdev }}"
+            fi
           fi
 
           if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
