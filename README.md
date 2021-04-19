@@ -77,7 +77,7 @@ jobs:
 | `gitopsorganization` | GitHub Organization for GitOps | `Staffbase` |
 | `gitopsrepository` | GitHub Repository for GitOps | `mops` |
 | `gitopsuser` | GitHub User for GitOps | `Staffbot` |
-| `gitopsemail` | GitHub User for GitOps | `daniel.grosse+staffbot@staffbase.com` |
+| `gitopsemail` | GitHub User for GitOps | `staffbot@staffbase.com` |
 | `gitopstoken` | GitHub Token for GitOps | |
 | `gitopsdev` | Files which should be updated by the GitHub Action for DEV | |
 | `gitopsstage` | Files which should be updated by the GitHub Action for STAGE | |
