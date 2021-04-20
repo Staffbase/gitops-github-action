@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: gitops-github-action
+  annotations:
+    github.com/project-slug: Staffbase/gitops-github-action
+  tags:
+    - 
+spec:
+  type: service
+  lifecycle: production
