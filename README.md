@@ -6,6 +6,8 @@ This GitHub Action can be used for our GitOps workflow. The GitHub Action will b
 
 When you want to use this GitHub Action your GitHub repository should have a `dev` and `master` / `main` branch and it should use tags for releases. For the `dev` branch we will change the files specified under `gitopsdev`. For the `master` / `main` branch we will change the files specified under `gitopsstage`. For a new tag the files under `gitopsprod` will be used.
 
+This GitOps setup (dev -> dev, master -> stage, tag -> prod) should be the default for all our repositories. However, if you have a special case, you can leave `gitopsdev`, `gitopsstage` and `gitopsprod` undefined, then those steps will be skipped.
+
 ## Usage
 
 ```yaml
