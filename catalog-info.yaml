@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: gitops-github-action
+  description: Used for our GitOps workflow. Build and push the Docker image and deploys to our Kubernetes clusters.
+  annotations:
+    github.com/project-slug: Staffbase/gitops-github-action
+  tags:
+    - infrastructure
+spec:
+  type: other
+  lifecycle: production
