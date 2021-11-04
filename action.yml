@@ -68,9 +68,13 @@ runs:
       id: preparation
       shell: bash
       run: |
-        if [[ $GITHUB_REF == refs/heads/master ]] || [[ $GITHUB_REF == refs/heads/main ]]; then
+        if [[ $GITHUB_REF == refs/heads/master ]]; then
           TAG="master-${GITHUB_SHA::8}"
           LATEST="master"
+          PUSH="true"
+        elif [[ $GITHUB_REF == refs/heads/main ]]; then
+          TAG="main-${GITHUB_SHA::8}"
+          LATEST="main"
           PUSH="true"
         elif [[ $GITHUB_REF == refs/heads/dev ]]; then
           TAG="dev-${GITHUB_SHA::8}"
