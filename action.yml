@@ -61,6 +61,12 @@ inputs:
     description: 'The directory (as a path relative to the repo root dir) in which the GitOps action should be executed. The dockerfile variable should be relative to workingdirectory.'
     required: false
     default: '.'
+
+outputs:
+  dockertag:
+    description: 'Docker tag'
+    value: ${{ steps.preparation.outputs.tag }}
+
 runs:
   using: "composite"
   steps:
