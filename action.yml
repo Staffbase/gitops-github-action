@@ -125,6 +125,15 @@ runs:
     - name: Update Docker Image in Repository
       shell: bash
       run: |
+        commit_changes () {
+          if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
+            git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            # In case there was another push in the meantime, we pull it again
+            git pull --rebase https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
+            git push https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
+          fi
+        }
+
         if [[ ${{ inputs.gitopsenabled }} == "true" ]]; then
           git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
 
@@ -140,6 +149,8 @@ runs:
               echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
               ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
             done <<< "${{ inputs.gitopsstage }}"
+            commit_changes
+
           elif [[ $GITHUB_REF == refs/heads/dev && -n "${{ inputs.gitopsdev }}" ]]; then
             echo "Run update for DEV"
             while IFS= read -r line; do
@@ -148,6 +159,8 @@ runs:
               echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
               ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
             done <<< "${{ inputs.gitopsdev }}"
+            commit_changes
+
           elif [[ $GITHUB_REF == refs/tags/* && -n "${{ inputs.gitopsprod }}" ]]; then
             echo "Run update for PROD"
             while IFS= read -r line; do
@@ -156,6 +169,8 @@ runs:
               echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
               ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
             done <<< "${{ inputs.gitopsprod }}"
+            commit_changes
+
           elif [[ -n "${{ inputs.gitopsdev }}" ]]; then
             echo "Simulate update for DEV"
             while IFS= read -r line; do
@@ -164,11 +179,6 @@ runs:
               echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
               ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
             done <<< "${{ inputs.gitopsdev }}"
-          fi
-
-          if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-            git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            git pull --rebase https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git # in case there was another push in the meantime
-            git push https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
+            commit_changes
           fi
         fi
