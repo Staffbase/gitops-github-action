@@ -103,6 +103,9 @@ runs:
         echo ::set-output name=latest::${LATEST}
         echo ::set-output name=push::${PUSH}
 
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
     - name: Build
       id: docker_build
       uses: docker/build-push-action@v2
@@ -112,6 +115,8 @@ runs:
         file: ${{ inputs.dockerfile }}
         target: ${{ inputs.dockeradditionalbuildparams }}
         tags: ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
     - name: Push the Docker Image
       shell: bash
