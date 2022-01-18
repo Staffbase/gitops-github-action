@@ -99,6 +99,12 @@ runs:
           PUSH="false"
         fi
 
+        TAG_LIST="${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${TAG}"
+        if [[ ! -z "${LATEST}" ]]; then
+          TAG_LIST+=",${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${LATEST}"
+        fi
+
+        echo ::set-output name=tag_list::${TAG_LIST}
         echo ::set-output name=tag::${TAG}
         echo ::set-output name=latest::${LATEST}
         echo ::set-output name=push::${PUSH}
@@ -106,34 +112,37 @@ runs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
 
+    - name: Login to Registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ inputs.dockerregistry }}
+        username: ${{ inputs.dockerusername }}
+        password: ${{ inputs.dockerpassword }}
+
     - name: Build
       id: docker_build
       uses: docker/build-push-action@v2
       with:
         context: .
-        push: false
+        push: true
         file: ${{ inputs.dockerfile }}
         target: ${{ inputs.dockeradditionalbuildparams }}
-        tags: ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+        tags: ${{ steps.preparation.outputs.tag_list }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Push the Docker Image
-      shell: bash
-      working-directory: ${{ inputs.workingdirectory }}
-      run: |
-        if [[ ${{ inputs.dockerenabled }} == "true" ]]; then
-          echo The working directory is $(pwd)
-          echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
-
-          if [[ ! -z "${{ steps.preparation.outputs.latest }}" ]]; then
-            docker tag ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.latest }}
-          fi
-
-          if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-            docker push --all-tags ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}
-          fi
-        fi
+#    - name: Push the Docker Image
+#      shell: bash
+#      working-directory: ${{ inputs.workingdirectory }}
+#      run: |
+#        if [[ ${{ inputs.dockerenabled }} == "true" ]]; then
+#          echo The working directory is $(pwd)
+#          echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
+#
+#          if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
+#            docker push --all-tags ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}
+#          fi
+#        fi
 
 #    - name: Build and Push the Docker Image
 #      shell: bash
