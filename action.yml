@@ -133,6 +133,7 @@ runs:
         target: ${{ inputs.dockerbuildtarget }}
         build-args: ${{ inputs.dockerbuildargs }}
         tags: ${{ steps.preparation.outputs.tag_list }}
+        platforms: linux/amd64
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
