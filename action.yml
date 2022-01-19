@@ -124,10 +124,11 @@ runs:
 
     - name: Build
       id: docker_build
+      if: ${{ inputs.dockerenabled }} == "true"
       uses: docker/build-push-action@v2
       with:
         context: .
-        push: true
+        push: ${{ steps.preparation.outputs.push }}
         file: ${{ inputs.dockerfile }}
         target: ${{ inputs.dockerbuildtarget }}
         build-args: ${{ inputs.dockerbuildargs }}
