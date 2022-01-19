@@ -22,8 +22,11 @@ inputs:
     description: 'Dockerfile'
     required: true
     default: './Dockerfile'
-  dockeradditionalbuildparams:
-    description: 'List of Docker Build Parameters like: "--target runtime --build-arg ARG1=one --build-arg ARG2=two"'
+  dockerbuildargs:
+    description: "List of build-time variables"
+    required: false
+  dockerbuildtarget:
+    description: "Sets the target stage to build"
     required: false
   gitopsenabled:
     description: 'Update manifest files in the GitOps repository'
@@ -126,7 +129,8 @@ runs:
         context: .
         push: true
         file: ${{ inputs.dockerfile }}
-        target: ${{ inputs.dockeradditionalbuildparams }}
+        target: ${{ inputs.dockerbuildtarget }}
+        build-args: ${{ inputs.dockerbuildargs }}
         tags: ${{ steps.preparation.outputs.tag_list }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
