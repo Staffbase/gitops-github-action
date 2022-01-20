@@ -22,8 +22,11 @@ inputs:
     description: 'Dockerfile'
     required: true
     default: './Dockerfile'
-  dockeradditionalbuildparams:
-    description: 'List of Docker Build Parameters like: "--target runtime --build-arg ARG1=one --build-arg ARG2=two"'
+  dockerbuildargs:
+    description: "List of build-time variables"
+    required: false
+  dockerbuildtarget:
+    description: "Sets the target stage to build"
     required: false
   gitopsenabled:
     description: 'Update manifest files in the GitOps repository'
@@ -99,28 +102,40 @@ runs:
           PUSH="false"
         fi
 
+        TAG_LIST="${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${TAG}"
+        if [[ ! -z "${LATEST}" ]]; then
+          TAG_LIST+=",${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${LATEST}"
+        fi
+
+        echo ::set-output name=tag_list::${TAG_LIST}
         echo ::set-output name=tag::${TAG}
         echo ::set-output name=latest::${LATEST}
         echo ::set-output name=push::${PUSH}
 
-    - name: Build and Push the Docker Image
-      shell: bash
-      working-directory: ${{ inputs.workingdirectory }}
-      run: |
-        if [[ ${{ inputs.dockerenabled }} == "true" ]]; then
-          echo The working directory is $(pwd)
-          echo '${{ inputs.dockerpassword }}' | docker login ${{ inputs.dockerregistry }} -u '${{ inputs.dockerusername }}' --password-stdin
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
 
-          docker build ${{ inputs.dockeradditionalbuildparams }} -f ${{ inputs.dockerfile }} -t ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} .
+    - name: Login to Registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ inputs.dockerregistry }}
+        username: ${{ inputs.dockerusername }}
+        password: ${{ inputs.dockerpassword }}
 
-          if [[ ! -z "${{ steps.preparation.outputs.latest }}" ]]; then
-            docker tag ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }} ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.latest }}
-          fi
-
-          if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-            docker push --all-tags ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}
-          fi
-        fi
+    - name: Build
+      id: docker_build
+      if: ${{ inputs.dockerenabled }} == "true"
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: ${{ steps.preparation.outputs.push }}
+        file: ${{ inputs.dockerfile }}
+        target: ${{ inputs.dockerbuildtarget }}
+        build-args: ${{ inputs.dockerbuildargs }}
+        tags: ${{ steps.preparation.outputs.tag_list }}
+        platforms: linux/amd64
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
     - name: Update Docker Image in Repository
       shell: bash

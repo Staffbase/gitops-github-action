@@ -43,8 +43,11 @@ jobs:
           dockerpassword: ${{ secrets.DOCKER_PASSWORD }}
           # This is the name of the Docker image for your service.
           dockerimage: private/diablo-redbook
+          # List of build-time variables
+          dockerbuildargs: "ARG1='one',ARG2='two'"
+          # Sets the target stage to build
+          dockerbuildtarget: "runtime"
           # The additional arguments you need to build the docker image
-          dockeradditionalbuildparams: "--target runtime --build-arg ARG1='one' --build-arg ARG2='two'"
           gitopstoken: ${{ secrets.GITOPS_TOKEN }}
           # The gitopsdev, gitopsstage and gitopsprod values are used to specify which files including the YAML path which should be updated with the new image.
           # ATTENTION 1: You must use |- to remove the final newline in the string, otherwise the GitHub Action will fail.
@@ -66,22 +69,24 @@ jobs:
 
 ## Inputs
 
-| Name | Description | Default |
-| ---- | ----------- | ------- |
-| `dockerenabled` | Build and push the Docker Image | `true` |
-| `dockerregistry` | Docker Registry | `registry.staffbase.com`|
-| `dockerimage` | Docker Image | |
-| `dockerusername` | Username for the Docker Registry | |
-| `dockerpassword` | Password for the Docker Registry | |
-| `dockerfile` | Dockerfile | `./Dockerfile` |
-| `dockeradditionalbuildparams` | List of Docker Build Parameters like: "--target runtime --build-arg ARG1=one --build-arg ARG2=two" | |
-| `gitopsenabled` | Update the manifest files in the GitOps repository | `true` |
-| `gitopsorganization` | GitHub Organization for GitOps | `Staffbase` |
-| `gitopsrepository` | GitHub Repository for GitOps | `mops` |
-| `gitopsuser` | GitHub User for GitOps | `Staffbot` |
-| `gitopsemail` | GitHub User for GitOps | `staffbot@staffbase.com` |
-| `gitopstoken` | GitHub Token for GitOps | |
-| `gitopsdev` | Files which should be updated by the GitHub Action for DEV | |
-| `gitopsstage` | Files which should be updated by the GitHub Action for STAGE | |
-| `gitopsprod` | Files which should be updated by the GitHub Action for PROD | |
-| `workingdirectory` | The directory in which the GitOps action should be executed. The dockerfile variable should be relative to working directory. | `.` |
+| Name                          | Description                                                                                                                   | Default                  |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------|
+| `dockerenabled`               | Build and push the Docker Image                                                                                               | `true`                   |
+| `dockerregistry`              | Docker Registry                                                                                                               | `registry.staffbase.com` |
+| `dockerimage`                 | Docker Image                                                                                                                  |                          |
+| `dockerusername`              | Username for the Docker Registry                                                                                              |                          |
+| `dockerpassword`              | Password for the Docker Registry                                                                                              |                          |
+| `dockerfile`                  | Dockerfile                                                                                                                    | `./Dockerfile`           |
+| `dockeradditionalbuildparams` | List of Docker Build Parameters like: "--target runtime --build-arg ARG1=one --build-arg ARG2=two"                            |                          |
+| `dockerbuildargs`             | List of build-time variables like: "ARG1=one,ARG2=two"                                                                        |                          |
+| `dockerbuildtarget`           | Sets the target stage to build like: "runtime"                                                                                |                          |
+| `gitopsenabled`               | Update the manifest files in the GitOps repository                                                                            | `true`                   |
+| `gitopsorganization`          | GitHub Organization for GitOps                                                                                                | `Staffbase`              |
+| `gitopsrepository`            | GitHub Repository for GitOps                                                                                                  | `mops`                   |
+| `gitopsuser`                  | GitHub User for GitOps                                                                                                        | `Staffbot`               |
+| `gitopsemail`                 | GitHub User for GitOps                                                                                                        | `staffbot@staffbase.com` |
+| `gitopstoken`                 | GitHub Token for GitOps                                                                                                       |                          |
+| `gitopsdev`                   | Files which should be updated by the GitHub Action for DEV                                                                    |                          |
+| `gitopsstage`                 | Files which should be updated by the GitHub Action for STAGE                                                                  |                          |
+| `gitopsprod`                  | Files which should be updated by the GitHub Action for PROD                                                                   |                          |
+| `workingdirectory`            | The directory in which the GitOps action should be executed. The dockerfile variable should be relative to working directory. | `.`                      |
