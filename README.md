@@ -44,7 +44,9 @@ jobs:
           # This is the name of the Docker image for your service.
           dockerimage: private/diablo-redbook
           # List of build-time variables
-          dockerbuildargs: "ARG1='one',ARG2='two'"
+          dockerbuildargs: |
+            "ARG1='one'"
+            "ARG2='two'"
           # Sets the target stage to build
           dockerbuildtarget: "runtime"
           # The additional arguments you need to build the docker image
@@ -77,8 +79,7 @@ jobs:
 | `dockerusername`              | Username for the Docker Registry                                                                                              |                          |
 | `dockerpassword`              | Password for the Docker Registry                                                                                              |                          |
 | `dockerfile`                  | Dockerfile                                                                                                                    | `./Dockerfile`           |
-| `dockeradditionalbuildparams` | List of Docker Build Parameters like: "--target runtime --build-arg ARG1=one --build-arg ARG2=two"                            |                          |
-| `dockerbuildargs`             | List of build-time variables like: "ARG1=one,ARG2=two"                                                                        |                          |
+| `dockerbuildargs`             | List of build-time variables                                                                       |                          |
 | `dockerbuildtarget`           | Sets the target stage to build like: "runtime"                                                                                |                          |
 | `gitopsenabled`               | Update the manifest files in the GitOps repository                                                                            | `true`                   |
 | `gitopsorganization`          | GitHub Organization for GitOps                                                                                                | `Staffbase`              |
