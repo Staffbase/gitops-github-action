@@ -18,7 +18,7 @@ on: [push]
 jobs:
   ci-cd:
     name: Build, Push and Deploy
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           repository: Staffbase/gitops-github-action
-          ref: v1
+          ref: v3
           # The GITOPS_TOKEN is available as organization secret.
           token: ${{ secrets.GITOPS_TOKEN }}
           # It's important that you clone the repository into the .github/gitops path, because the GitHub Action has a hard dependency on this path.
