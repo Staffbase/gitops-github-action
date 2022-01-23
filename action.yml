@@ -124,7 +124,7 @@ runs:
 
     - name: Build
       id: docker_build
-      if: ${{ inputs.dockerenabled == "true" }}
+      if: inputs.dockerenabled == 'true'
       uses: docker/build-push-action@v2
       with:
         context: .
