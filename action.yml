@@ -139,7 +139,6 @@ runs:
 
     - name: Update Docker Image in Repository
       shell: bash
-      working-directory: ${{ inputs.workingdirectory }}
       run: |
         commit_changes () {
           if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
