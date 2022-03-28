@@ -127,7 +127,7 @@ runs:
       if: inputs.dockerenabled == 'true'
       uses: docker/build-push-action@v2
       with:
-        context: .
+        context: ${{ inputs.workingdirectory }}
         push: ${{ steps.preparation.outputs.push }}
         file: ${{ inputs.workingdirectory }}/${{ inputs.dockerfile }}
         target: ${{ inputs.dockerbuildtarget }}
@@ -139,6 +139,7 @@ runs:
 
     - name: Update Docker Image in Repository
       shell: bash
+      working-directory: ${{ inputs.workingdirectory }}
       run: |
         commit_changes () {
           if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
