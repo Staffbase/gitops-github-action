@@ -19,7 +19,7 @@ inputs:
     description: 'Password for the Docker Registry'
     required: true
   dockerfile:
-    description: 'Dockerfile'
+    description: 'Path of the Dockerfile. Should be relative to input.workingdirectory'
     required: true
     default: './Dockerfile'
   dockerbuildargs:
@@ -61,7 +61,7 @@ inputs:
     description: 'Files which should be updated by the GitHub Action for PROD'
     required: false
   workingdirectory:
-    description: 'The directory (as a path relative to the repo root dir) in which the GitOps action should be executed. The dockerfile variable should be relative to workingdirectory.'
+    description: 'The path relative to the repo root dir in which the GitOps action should be executed.'
     required: false
     default: '.'
 
@@ -129,7 +129,7 @@ runs:
       with:
         context: .
         push: ${{ steps.preparation.outputs.push }}
-        file: ${{ inputs.dockerfile }}
+        file: ${{ inputs.workingdirectory }}/${{ inputs.dockerfile }}
         target: ${{ inputs.dockerbuildtarget }}
         build-args: ${{ inputs.dockerbuildargs }}
         tags: ${{ steps.preparation.outputs.tag_list }}
