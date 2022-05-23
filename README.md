@@ -1,12 +1,17 @@
 # GitHub Action for GitOps
 
-This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.
+This GitHub Action can be used for our GitOps workflow.
+The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.
 
 ## Requirement
 
-When you want to use this GitHub Action your GitHub repository should have a `dev` and `master` / `main` branch and it should use tags for releases. For the `dev` branch we will change the files specified under `gitopsdev`. For the `master` / `main` branch we will change the files specified under `gitopsstage`. For a new tag the files under `gitopsprod` will be used.
+When you want to use this GitHub Action your GitHub repository should have a `dev` and `master` / `main` branch and it should use tags for releases.
+For the `dev` branch we will change the files specified under `gitopsdev`.
+For the `master` / `main` branch we will change the files specified under `gitopsstage`.
+For a new tag the files under `gitopsprod` will be used.
 
-This GitOps setup (dev -> dev, master -> stage, tag -> prod) should be the default for all our repositories. However, if you have a special case, you can leave `gitopsdev`, `gitopsstage` and `gitopsprod` undefined, then those steps will be skipped.
+This GitOps setup (dev -> dev, master -> stage, tag -> prod) should be the default for all our repositories.
+However, if you have a special case, you can leave `gitopsdev`, `gitopsstage` and `gitopsprod` undefined, then those steps will be skipped.
 
 ## Usage
 
@@ -18,25 +23,16 @@ on: [push]
 jobs:
   ci-cd:
     name: Build, Push and Deploy
+
     runs-on: ubuntu-20.04
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      # Checkout our GitHub Action for GitOps.
-      - uses: actions/checkout@v2
-        with:
-          repository: Staffbase/gitops-github-action
-          ref: v3
-          # The GITOPS_TOKEN is available as organization secret.
-          token: ${{ secrets.GITOPS_TOKEN }}
-          # It's important that you clone the repository into the .github/gitops path, because the GitHub Action has a hard dependency on this path.
-          path: .github/gitops
-
-      # Run the GitOps GitHub Action which builds and pushs the Docker image and then updates the deployment in the mops repository.
+      # Run the GitOps GitHub Action which builds and push the Docker image and then updates the deployment in the repository.
       - name: GitOps (build, push and deploy a new Docker image)
-        # Here we are referencing the cloned GitHub Action.
-        uses: ./.github/gitops
+        uses: Staffbase/gitops-github-action@v3
         # The DOCKER_USERNAME, DOCKER_PASSWORD and GITOPS_TOKEN secrets are available as organization secret.
         with:
           dockerusername: ${{ secrets.DOCKER_USERNAME }}
@@ -91,3 +87,11 @@ jobs:
 | `gitopsstage`                 | Files which should be updated by the GitHub Action for STAGE                                                                  |                          |
 | `gitopsprod`                  | Files which should be updated by the GitHub Action for PROD                                                                   |                          |
 | `workingdirectory`            | The directory in which the GitOps action should be executed. The dockerfile variable should be relative to working directory. | `.`                      |
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
+
+## License
+
+This project is licensed under the Apache-2.0 License - see the [LICENSE.md](LICENSE) file for details.
