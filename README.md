@@ -30,9 +30,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      # Checkout our GitHub Action for GitOps.
+      - uses: actions/checkout@v2
+        with:
+          repository: Staffbase/gitops-github-action
+          ref: v3
+          # It's important that you clone the repository into the .github/gitops path, because the GitHub Action has a hard dependency on this path.
+          path: .github/gitops
+
       # Run the GitOps GitHub Action which builds and push the Docker image and then updates the deployment in the repository.
       - name: GitOps (build, push and deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v3
+        # Here we are referencing the cloned GitHub Action.
+        uses: ./.github/gitops
         # The DOCKER_USERNAME, DOCKER_PASSWORD and GITOPS_TOKEN secrets are available as organization secret.
         with:
           dockerusername: ${{ secrets.DOCKER_USERNAME }}
