@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v3
 
       # Checkout our GitHub Action for GitOps.
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: Staffbase/gitops-github-action
           ref: v3
