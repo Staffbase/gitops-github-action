@@ -152,7 +152,7 @@ runs:
           fi
         }
 
-        sudo wget -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.8.0/yq_linux_amd64
+        sudo wget -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/3.4.1/yq_linux_amd64
         sudo chmod +x /usr/local/bin/yq
 
         git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
