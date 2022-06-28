@@ -140,6 +140,7 @@ runs:
         cache-to: type=gha,mode=max
 
     - name: Update Docker Image in Repository
+      if: inputs.gitopsenabled == 'true'
       shell: bash
       run: |
         commit_changes () {
@@ -151,51 +152,52 @@ runs:
           fi
         }
 
-        if [[ ${{ inputs.gitopsenabled }} == "true" ]]; then
-          git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
+        sudo wget -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.8.0/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq
 
-          git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git .github/${{ inputs.gitopsrepository }}
-          cd .github/${{ inputs.gitopsrepository }}
-          echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully "
+        git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
 
-          if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && -n "${{ inputs.gitopsstage }}" ]]; then
-            echo "Run update for STAGE"
-            while IFS= read -r line; do
-              echo "Check if path $line exists and get old current version"
-              ../gitops/yq r -e $line
-              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-            done <<< "${{ inputs.gitopsstage }}"
-            commit_changes
+        git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git .github/${{ inputs.gitopsrepository }}
+        cd .github/${{ inputs.gitopsrepository }}
+        echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully "
 
-          elif [[ $GITHUB_REF == refs/heads/dev && -n "${{ inputs.gitopsdev }}" ]]; then
-            echo "Run update for DEV"
-            while IFS= read -r line; do
-              echo "Check if path $line exists and get old current version"
-              ../gitops/yq r -e $line
-              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-            done <<< "${{ inputs.gitopsdev }}"
-            commit_changes
+        if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && -n "${{ inputs.gitopsstage }}" ]]; then
+          echo "Run update for STAGE"
+          while IFS= read -r line; do
+            echo "Check if path $line exists and get old current version"
+            yq r -e $line
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+          done <<< "${{ inputs.gitopsstage }}"
+          commit_changes
 
-          elif [[ $GITHUB_REF == refs/tags/* && -n "${{ inputs.gitopsprod }}" ]]; then
-            echo "Run update for PROD"
-            while IFS= read -r line; do
-              echo "Check if path $line exists and get old current version"
-              ../gitops/yq r -e $line
-              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-            done <<< "${{ inputs.gitopsprod }}"
-            commit_changes
+        elif [[ $GITHUB_REF == refs/heads/dev && -n "${{ inputs.gitopsdev }}" ]]; then
+          echo "Run update for DEV"
+          while IFS= read -r line; do
+            echo "Check if path $line exists and get old current version"
+            yq r -e $line
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+          done <<< "${{ inputs.gitopsdev }}"
+          commit_changes
 
-          elif [[ -n "${{ inputs.gitopsdev }}" ]]; then
-            echo "Simulate update for DEV"
-            while IFS= read -r line; do
-              echo "Check if path $line exists and get old current version"
-              ../gitops/yq r -e $line
-              echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-              ../gitops/yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-            done <<< "${{ inputs.gitopsdev }}"
-            commit_changes
-          fi
+        elif [[ $GITHUB_REF == refs/tags/* && -n "${{ inputs.gitopsprod }}" ]]; then
+          echo "Run update for PROD"
+          while IFS= read -r line; do
+            echo "Check if path $line exists and get old current version"
+            yq r -e $line
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+          done <<< "${{ inputs.gitopsprod }}"
+          commit_changes
+
+        elif [[ -n "${{ inputs.gitopsdev }}" ]]; then
+          echo "Simulate update for DEV"
+          while IFS= read -r line; do
+            echo "Check if path $line exists and get old current version"
+            yq r -e $line
+            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+          done <<< "${{ inputs.gitopsdev }}"
+          commit_changes
         fi
