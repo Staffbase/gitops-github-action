@@ -180,7 +180,6 @@ runs:
             echo "Check if path $line exists and get old current version"
             yq -e .${array[1]} ${array[0]}
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            echo "yq -i '.${array[1]}=\"${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}\"' ${array[0]}"
             yq -i .${array[1]}=\"${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
           done <<< "${{ inputs.gitopsdev }}"
           commit_changes
