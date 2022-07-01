@@ -153,7 +153,7 @@ runs:
         }
 
         # download and install yq
-        sudo wget -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/3.4.1/yq_linux_amd64
+        sudo wget -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.25.3/yq_linux_amd64
         sudo chmod +x /usr/local/bin/yq
 
         git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
@@ -165,40 +165,45 @@ runs:
         if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && -n "${{ inputs.gitopsstage }}" ]]; then
           echo "Run update for STAGE"
           while IFS= read -r line; do
+            array=($line)
             echo "Check if path $line exists and get old current version"
-            yq r -e $line
+            yq -e .${array[1]} ${array[0]}
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+            yq -i .${array[1]}=\"${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
           done <<< "${{ inputs.gitopsstage }}"
           commit_changes
 
         elif [[ $GITHUB_REF == refs/heads/dev && -n "${{ inputs.gitopsdev }}" ]]; then
           echo "Run update for DEV"
           while IFS= read -r line; do
+            array=($line)
             echo "Check if path $line exists and get old current version"
-            yq r -e $line
+            yq -e .${array[1]} ${array[0]}
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+            echo "yq -i '.${array[1]}=\"${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}\"' ${array[0]}"
+            yq -i .${array[1]}=\"${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
           done <<< "${{ inputs.gitopsdev }}"
           commit_changes
 
         elif [[ $GITHUB_REF == refs/tags/* && -n "${{ inputs.gitopsprod }}" ]]; then
           echo "Run update for PROD"
           while IFS= read -r line; do
+            array=($line)
             echo "Check if path $line exists and get old current version"
-            yq r -e $line
+            yq -e .${array[1]} ${array[0]}
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+            yq -i .${array[1]}=\"${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
           done <<< "${{ inputs.gitopsprod }}"
           commit_changes
 
         elif [[ -n "${{ inputs.gitopsdev }}" ]]; then
           echo "Simulate update for DEV"
           while IFS= read -r line; do
+            array=($line)
             echo "Check if path $line exists and get old current version"
-            yq r -e $line
+            yq -e .${array[1]} ${array[0]}
             echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
+            yq -i .${array[1]}=\"${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
           done <<< "${{ inputs.gitopsdev }}"
           commit_changes
         fi
