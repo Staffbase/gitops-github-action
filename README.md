@@ -69,7 +69,6 @@ jobs:
 
 | Name                 | Description                                                                                                                   | Default                  |
 |----------------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------|
-| `dockerenabled`      | Build and push the Docker Image                                                                                               | `true`                   |
 | `dockerregistry`     | Docker Registry                                                                                                               | `registry.staffbase.com` |
 | `dockerimage`        | Docker Image                                                                                                                  |                          |
 | `dockerusername`     | Username for the Docker Registry                                                                                              |                          |

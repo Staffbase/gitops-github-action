@@ -1,10 +1,6 @@
 name: 'GitOps'
 description: 'This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.'
 inputs:
-  dockerenabled:
-    description: 'Build and push the Docker Image'
-    required: true
-    default: 'true'
   dockerregistry:
     description: 'Docker Registry'
     required: true
@@ -109,11 +105,11 @@ runs:
         echo ::set-output name=push::${PUSH}
 
     - name: Set up Docker Buildx
-      if: inputs.dockerenabled == 'true'
+      if: inputs.dockerusername != '' && inputs.dockerpassword != ''
       uses: docker/setup-buildx-action@v2
 
     - name: Login to Registry
-      if: inputs.dockerenabled == 'true'
+      if: inputs.dockerusername != '' && inputs.dockerpassword != ''
       uses: docker/login-action@v2
       with:
         registry: ${{ inputs.dockerregistry }}
@@ -122,7 +118,7 @@ runs:
 
     - name: Build
       id: docker_build
-      if: inputs.dockerenabled == 'true'
+      if: inputs.dockerusername != '' && inputs.dockerpassword != ''
       uses: docker/build-push-action@v3
       with:
         context: ${{ inputs.workingdirectory }}
