@@ -67,26 +67,26 @@ jobs:
 
 ## Inputs
 
-| Name                          | Description                                                                                                                   | Default                  |
-|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------|
-| `dockerenabled`               | Build and push the Docker Image                                                                                               | `true`                   |
-| `dockerregistry`              | Docker Registry                                                                                                               | `registry.staffbase.com` |
-| `dockerimage`                 | Docker Image                                                                                                                  |                          |
-| `dockerusername`              | Username for the Docker Registry                                                                                              |                          |
-| `dockerpassword`              | Password for the Docker Registry                                                                                              |                          |
-| `dockerfile`                  | Dockerfile                                                                                                                    | `./Dockerfile`           |
-| `dockerbuildargs`             | List of build-time variables                                                                       |                          |
-| `dockerbuildtarget`           | Sets the target stage to build like: "runtime"                                                                                |                          |
-| `gitopsenabled`               | Update the manifest files in the GitOps repository                                                                            | `true`                   |
-| `gitopsorganization`          | GitHub Organization for GitOps                                                                                                | `Staffbase`              |
-| `gitopsrepository`            | GitHub Repository for GitOps                                                                                                  | `mops`                   |
-| `gitopsuser`                  | GitHub User for GitOps                                                                                                        | `Staffbot`               |
-| `gitopsemail`                 | GitHub User for GitOps                                                                                                        | `staffbot@staffbase.com` |
-| `gitopstoken`                 | GitHub Token for GitOps                                                                                                       |                          |
-| `gitopsdev`                   | Files which should be updated by the GitHub Action for DEV                                                                    |                          |
-| `gitopsstage`                 | Files which should be updated by the GitHub Action for STAGE                                                                  |                          |
-| `gitopsprod`                  | Files which should be updated by the GitHub Action for PROD                                                                   |                          |
-| `workingdirectory`            | The directory in which the GitOps action should be executed. The dockerfile variable should be relative to working directory. | `.`                      |
+| Name                 | Description                                                                                                                   | Default                  |
+|----------------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------|
+| `dockerenabled`      | Build and push the Docker Image                                                                                               | `true`                   |
+| `dockerregistry`     | Docker Registry                                                                                                               | `registry.staffbase.com` |
+| `dockerimage`        | Docker Image                                                                                                                  |                          |
+| `dockerusername`     | Username for the Docker Registry                                                                                              |                          |
+| `dockerpassword`     | Password for the Docker Registry                                                                                              |                          |
+| `dockerfile`         | Dockerfile                                                                                                                    | `./Dockerfile`           |
+| `dockerbuildargs`    | List of build-time variables                                                                                                  |                          |
+| `dockerbuildtarget`  | Sets the target stage to build like: "runtime"                                                                                |                          |
+| `gitopsenabled`      | Update the manifest files in the GitOps repository                                                                            | `true`                   |
+| `gitopsorganization` | GitHub Organization for GitOps                                                                                                | `Staffbase`              |
+| `gitopsrepository`   | GitHub Repository for GitOps                                                                                                  | `mops`                   |
+| `gitopsuser`         | GitHub User for GitOps                                                                                                        | `Staffbot`               |
+| `gitopsemail`        | GitHub User for GitOps                                                                                                        | `staffbot@staffbase.com` |
+| `gitopstoken`        | GitHub Token for GitOps                                                                                                       |                          |
+| `gitopsdev`          | Files which should be updated by the GitHub Action for DEV                                                                    |                          |
+| `gitopsstage`        | Files which should be updated by the GitHub Action for STAGE                                                                  |                          |
+| `gitopsprod`         | Files which should be updated by the GitHub Action for PROD                                                                   |                          |
+| `workingdirectory`   | The directory in which the GitOps action should be executed. The dockerfile variable should be relative to working directory. | `.`                      |
 
 ## Contributing
 
