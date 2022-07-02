@@ -139,8 +139,17 @@ runs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+    - name: Checkout GitOps Repository
+      if: inputs.gitopsenabled == 'true'
+      uses: actions/checkout@v3
+      with:
+        repository: ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}
+        token: ${{ inputs.gitopstoken }}
+        path: .github/${{ inputs.gitopsrepository }}
+
     - name: Update Docker Image in Repository
       if: inputs.gitopsenabled == 'true'
+      working-directory: .github/${{ inputs.gitopsrepository }}
       shell: bash
       run: |
         commit_changes () {
@@ -152,11 +161,8 @@ runs:
           fi
         }
 
+        # configure git user
         git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
-
-        git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git .github/${{ inputs.gitopsrepository }}
-        cd .github/${{ inputs.gitopsrepository }}
-        echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully "
 
         if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && -n "${{ inputs.gitopsstage }}" ]]; then
           echo "Run update for STAGE"
