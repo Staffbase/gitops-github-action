@@ -28,10 +28,6 @@ inputs:
   dockerbuildtarget:
     description: "Sets the target stage to build"
     required: false
-  gitopsenabled:
-    description: 'Update manifest files in the GitOps repository'
-    required: true
-    default: 'true'
   gitopsorganization:
     description: 'GitHub Organization for GitOps'
     required: true
@@ -140,7 +136,7 @@ runs:
         cache-to: type=gha,mode=max
 
     - name: Checkout GitOps Repository
-      if: inputs.gitopsenabled == 'true'
+      if: inputs.gitopstoken != ''
       uses: actions/checkout@v3
       with:
         repository: ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}
@@ -148,7 +144,7 @@ runs:
         path: .github/${{ inputs.gitopsrepository }}
 
     - name: Update Docker Image in Repository
-      if: inputs.gitopsenabled == 'true'
+      if: inputs.gitopstoken != ''
       working-directory: .github/${{ inputs.gitopsrepository }}
       shell: bash
       run: |

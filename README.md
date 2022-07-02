@@ -77,7 +77,6 @@ jobs:
 | `dockerfile`         | Dockerfile                                                                                                                    | `./Dockerfile`           |
 | `dockerbuildargs`    | List of build-time variables                                                                                                  |                          |
 | `dockerbuildtarget`  | Sets the target stage to build like: "runtime"                                                                                |                          |
-| `gitopsenabled`      | Update the manifest files in the GitOps repository                                                                            | `true`                   |
 | `gitopsorganization` | GitHub Organization for GitOps                                                                                                | `Staffbase`              |
 | `gitopsrepository`   | GitHub Repository for GitOps                                                                                                  | `mops`                   |
 | `gitopsuser`         | GitHub User for GitOps                                                                                                        | `Staffbot`               |
