@@ -93,6 +93,7 @@ jobs:
       - name: GitOps (deploy a new Docker image)
         uses: Staffbase/gitops-github-action@v3
         with:
+          dockerimage: private/diablo-redbook
           gitopstoken: ${{ secrets.GITOPS_TOKEN }}
           gitopsdev: |-
             clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
