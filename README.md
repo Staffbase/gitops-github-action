@@ -1,22 +1,25 @@
-# GitHub Action for GitOps
+# 🚀 GitHub Action for GitOps
 
 This GitHub Action can be used for our GitOps workflow.
-The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.
+The GitHub Action will build and push the Docker image for your service and deploys the new version at your Kubernetes clusters.
 
 ## Requirement
 
 When you want to use this GitHub Action your GitHub repository should have a `dev` and `master` / `main` branch and it should use tags for releases.
-For the `dev` branch we will change the files specified under `gitopsdev`.
-For the `master` / `main` branch we will change the files specified under `gitopsstage`.
-For a new tag the files under `gitopsprod` will be used.
 
-This GitOps setup (dev -> dev, master -> stage, tag -> prod) should be the default for all our repositories.
-However, if you have a special case, you can leave `gitopsdev`, `gitopsstage` and `gitopsprod` undefined, then those steps will be skipped.
+- For the `dev` branch we will change the files specified under `gitops-dev`.
+- For the `master` / `main` branch we will change the files specified under `gitops-stage`.
+- For a new tag the files under `gitops-prod` will be used.
 
-## Usage
+This GitOps setup should be the default for all your repositories.
+However, if you have a special case, you can leave `gitops-dev`, `gitops-stage` and `gitops-prod` undefined, then those steps will be skipped.
+
+## Usages
+
+### Build, Push and Deploy Docker Image
 
 ```yaml
-name: Redbook CI/CD
+name: CD
 
 on: [push]
 
@@ -30,72 +33,96 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      # Checkout our GitHub Action for GitOps.
-      - uses: actions/checkout@v3
-        with:
-          repository: Staffbase/gitops-github-action
-          ref: v3
-          # It's important that you clone the repository into the .github/gitops path, because the GitHub Action has a hard dependency on this path.
-          path: .github/gitops
-
-      # Run the GitOps GitHub Action which builds and push the Docker image and then updates the deployment in the repository.
       - name: GitOps (build, push and deploy a new Docker image)
-        # Here we are referencing the cloned GitHub Action.
-        uses: ./.github/gitops
-        # The DOCKER_USERNAME, DOCKER_PASSWORD and GITOPS_TOKEN secrets are available as organization secret.
+        uses: Staffbase/gitops-github-action@v3
         with:
-          dockerusername: ${{ secrets.DOCKER_USERNAME }}
-          dockerpassword: ${{ secrets.DOCKER_PASSWORD }}
-          # This is the name of the Docker image for your service.
-          dockerimage: private/diablo-redbook
-          # List of build-time variables
-          dockerbuildargs: |
-            "ARG1='one'"
-            "ARG2='two'"
-          # Sets the target stage to build
-          dockerbuildtarget: "runtime"
-          # The additional arguments you need to build the docker image
-          gitopstoken: ${{ secrets.GITOPS_TOKEN }}
-          # The gitopsdev, gitopsstage and gitopsprod values are used to specify which files including the YAML path which should be updated with the new image.
-          # ATTENTION 1: You must use |- to remove the final newline in the string, otherwise the GitHub Action will fail.
-          # ATTENTION 2: The file path must be relative to the root of the GitOps repository (default: Staffbase/mops).
-          gitopsdev: |-
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          docker-image: private/diablo-redbook
+          gitops-token: ${{ secrets.GITOPS_TOKEN }}
+          gitops-dev: |-
             clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          gitopsstage: |-
+          gitops-stage: |-
             clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          gitopsprod: |-
+          gitops-prod: |-
             clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          # You can also update multiple file or multiple images in one file.
-          # The following example updates the Varnish image in the production cluster for main-de1 and main-us1. It also updates two images one is used for the init container and the other one for the normal container.
-          # gitopsprod: |-
-          #   clusters/customization/prod/main-de1/mediaserver/varnish-helm.yaml spec.template.spec.initContainers.config.image
-          #   clusters/customization/prod/main-de1/mediaserver/varnish-helm.yaml spec.template.spec.containers.varnish.image
-          #   clusters/customization/prod/main-us1/mediaserver/varnish-helm.yaml spec.template.spec.initContainers.config.image
-          #   clusters/customization/prod/main-us1/mediaserver/varnish-helm.yaml spec.template.spec.containers.varnish.image
+```
+
+### Build and Push Docker Image
+
+```yaml
+name: CD
+
+on: [push]
+
+jobs:
+  ci-cd:
+    name: Build and Push
+
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: GitOps (build and push a new Docker image)
+        uses: Staffbase/gitops-github-action@v3
+        with:
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          docker-image: private/diablo-redbook
+```
+
+### Deploy Docker Image
+
+```yaml
+name: CD
+
+on: [push]
+
+jobs:
+  ci-cd:
+    name: Deploy
+
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: GitOps (deploy a new Docker image)
+        uses: Staffbase/gitops-github-action@v3
+        with:
+          docker-image: private/diablo-redbook
+          gitops-token: ${{ secrets.GITOPS_TOKEN }}
+          gitops-dev: |-
+            clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+          gitops-stage: |-
+            clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+          gitops-prod: |-
+            clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
 ```
 
 ## Inputs
 
-| Name                          | Description                                                                                                                   | Default                  |
-|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------|
-| `dockerenabled`               | Build and push the Docker Image                                                                                               | `true`                   |
-| `dockerregistry`              | Docker Registry                                                                                                               | `registry.staffbase.com` |
-| `dockerimage`                 | Docker Image                                                                                                                  |                          |
-| `dockerusername`              | Username for the Docker Registry                                                                                              |                          |
-| `dockerpassword`              | Password for the Docker Registry                                                                                              |                          |
-| `dockerfile`                  | Dockerfile                                                                                                                    | `./Dockerfile`           |
-| `dockerbuildargs`             | List of build-time variables                                                                       |                          |
-| `dockerbuildtarget`           | Sets the target stage to build like: "runtime"                                                                                |                          |
-| `gitopsenabled`               | Update the manifest files in the GitOps repository                                                                            | `true`                   |
-| `gitopsorganization`          | GitHub Organization for GitOps                                                                                                | `Staffbase`              |
-| `gitopsrepository`            | GitHub Repository for GitOps                                                                                                  | `mops`                   |
-| `gitopsuser`                  | GitHub User for GitOps                                                                                                        | `Staffbot`               |
-| `gitopsemail`                 | GitHub User for GitOps                                                                                                        | `staffbot@staffbase.com` |
-| `gitopstoken`                 | GitHub Token for GitOps                                                                                                       |                          |
-| `gitopsdev`                   | Files which should be updated by the GitHub Action for DEV                                                                    |                          |
-| `gitopsstage`                 | Files which should be updated by the GitHub Action for STAGE                                                                  |                          |
-| `gitopsprod`                  | Files which should be updated by the GitHub Action for PROD                                                                   |                          |
-| `workingdirectory`            | The directory in which the GitOps action should be executed. The dockerfile variable should be relative to working directory. | `.`                      |
+| Name                  | Description                                                                                                                    | Default                  |
+|-----------------------|--------------------------------------------------------------------------------------------------------------------------------|--------------------------|
+| `docker-registry`     | Docker Registry                                                                                                                | `registry.staffbase.com` |
+| `docker-image`        | Docker Image                                                                                                                   |                          |
+| `docker-username`     | Username for the Docker Registry                                                                                               |                          |
+| `docker-password`     | Password for the Docker Registry                                                                                               |                          |
+| `docker-file`         | Dockerfile                                                                                                                     | `./Dockerfile`           |
+| `docker-build-args`   | List of build-time variables                                                                                                   |                          |
+| `docker-build-target` | Sets the target stage to build like: "runtime"                                                                                 |                          |
+| `gitops-organization` | GitHub Organization for GitOps                                                                                                 | `Staffbase`              |
+| `gitops-repository`   | GitHub Repository for GitOps                                                                                                   | `mops`                   |
+| `gitops-user`         | GitHub User for GitOps                                                                                                         | `Staffbot`               |
+| `gitops-email`        | GitHub Email for GitOps                                                                                                        | `staffbot@staffbase.com` |
+| `gitops-token`        | GitHub Token for GitOps                                                                                                        |                          |
+| `gitops-dev`          | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository              |                          |
+| `gitops-stage`        | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository            |                          |
+| `gitops-prod`         | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                          |
+| `working-directory`   | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                      |
 
 ## Contributing
 
@@ -104,8 +131,6 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduc
 ## License
 
 This project is licensed under the Apache-2.0 License - see the [LICENSE.md](LICENSE) file for details.
-
-
 
 <table>
   <tr>
