@@ -7,12 +7,12 @@ The GitHub Action will build and push the Docker image for your service and depl
 
 When you want to use this GitHub Action your GitHub repository should have a `dev` and `master` / `main` branch and it should use tags for releases.
 
-- For the `dev` branch we will change the files specified under `gitopsdev`.
-- For the `master` / `main` branch we will change the files specified under `gitopsstage`.
-- For a new tag the files under `gitopsprod` will be used.
+- For the `dev` branch we will change the files specified under `gitops-dev`.
+- For the `master` / `main` branch we will change the files specified under `gitops-stage`.
+- For a new tag the files under `gitops-prod` will be used.
 
 This GitOps setup should be the default for all your repositories.
-However, if you have a special case, you can leave `gitopsdev`, `gitopsstage` and `gitopsprod` undefined, then those steps will be skipped.
+However, if you have a special case, you can leave `gitops-dev`, `gitops-stage` and `gitops-prod` undefined, then those steps will be skipped.
 
 ## Usages
 
@@ -36,15 +36,15 @@ jobs:
       - name: GitOps (build, push and deploy a new Docker image)
         uses: Staffbase/gitops-github-action@v3
         with:
-          dockerusername: ${{ secrets.DOCKER_USERNAME }}
-          dockerpassword: ${{ secrets.DOCKER_PASSWORD }}
-          dockerimage: private/diablo-redbook
-          gitopstoken: ${{ secrets.GITOPS_TOKEN }}
-          gitopsdev: |-
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          docker-image: private/diablo-redbook
+          gitops-token: ${{ secrets.GITOPS_TOKEN }}
+          gitops-dev: |-
             clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          gitopsstage: |-
+          gitops-stage: |-
             clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          gitopsprod: |-
+          gitops-prod: |-
             clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
 ```
 
@@ -68,9 +68,9 @@ jobs:
       - name: GitOps (build and push a new Docker image)
         uses: Staffbase/gitops-github-action@v3
         with:
-          dockerusername: ${{ secrets.DOCKER_USERNAME }}
-          dockerpassword: ${{ secrets.DOCKER_PASSWORD }}
-          dockerimage: private/diablo-redbook
+          docker-username: ${{ secrets.DOCKER_USERNAME }}
+          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          docker-image: private/diablo-redbook
 ```
 
 ### Deploy Docker Image
@@ -93,36 +93,36 @@ jobs:
       - name: GitOps (deploy a new Docker image)
         uses: Staffbase/gitops-github-action@v3
         with:
-          dockerimage: private/diablo-redbook
-          gitopstoken: ${{ secrets.GITOPS_TOKEN }}
-          gitopsdev: |-
+          docker-image: private/diablo-redbook
+          gitops-token: ${{ secrets.GITOPS_TOKEN }}
+          gitops-dev: |-
             clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          gitopsstage: |-
+          gitops-stage: |-
             clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          gitopsprod: |-
+          gitops-prod: |-
             clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
 ```
 
 ## Inputs
 
-| Name                 | Description                                                                                                                   | Default                  |
-|----------------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------|
-| `dockerregistry`     | Docker Registry                                                                                                               | `registry.staffbase.com` |
-| `dockerimage`        | Docker Image                                                                                                                  |                          |
-| `dockerusername`     | Username for the Docker Registry                                                                                              |                          |
-| `dockerpassword`     | Password for the Docker Registry                                                                                              |                          |
-| `dockerfile`         | Dockerfile                                                                                                                    | `./Dockerfile`           |
-| `dockerbuildargs`    | List of build-time variables                                                                                                  |                          |
-| `dockerbuildtarget`  | Sets the target stage to build like: "runtime"                                                                                |                          |
-| `gitopsorganization` | GitHub Organization for GitOps                                                                                                | `Staffbase`              |
-| `gitopsrepository`   | GitHub Repository for GitOps                                                                                                  | `mops`                   |
-| `gitopsuser`         | GitHub User for GitOps                                                                                                        | `Staffbot`               |
-| `gitopsemail`        | GitHub Email for GitOps                                                                                                       | `staffbot@staffbase.com` |
-| `gitopstoken`        | GitHub Token for GitOps                                                                                                       |                          |
-| `gitopsdev`          | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository             |                          |
-| `gitopsstage`        | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository           |                          |
-| `gitopsprod`         | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository            |                          |
-| `workingdirectory`   | The directory in which the GitOps action should be executed. The dockerfile variable should be relative to working directory. | `.`                      |
+| Name                  | Description                                                                                                                    | Default                  |
+|-----------------------|--------------------------------------------------------------------------------------------------------------------------------|--------------------------|
+| `docker-registry`     | Docker Registry                                                                                                                | `registry.staffbase.com` |
+| `docker-image`        | Docker Image                                                                                                                   |                          |
+| `docker-username`     | Username for the Docker Registry                                                                                               |                          |
+| `docker-password`     | Password for the Docker Registry                                                                                               |                          |
+| `docker-file`         | Dockerfile                                                                                                                     | `./Dockerfile`           |
+| `docker-build-args`   | List of build-time variables                                                                                                   |                          |
+| `docker-build-target` | Sets the target stage to build like: "runtime"                                                                                 |                          |
+| `gitops-organization` | GitHub Organization for GitOps                                                                                                 | `Staffbase`              |
+| `gitops-repository`   | GitHub Repository for GitOps                                                                                                   | `mops`                   |
+| `gitops-user`         | GitHub User for GitOps                                                                                                         | `Staffbot`               |
+| `gitops-email`        | GitHub Email for GitOps                                                                                                        | `staffbot@staffbase.com` |
+| `gitops-token`        | GitHub Token for GitOps                                                                                                        |                          |
+| `gitops-dev`          | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository              |                          |
+| `gitops-stage`        | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository            |                          |
+| `gitops-prod`         | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                          |
+| `working-directory`   | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                      |
 
 ## Contributing
 
