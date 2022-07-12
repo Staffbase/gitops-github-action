@@ -1,72 +1,64 @@
 name: 'GitOps'
 description: 'This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.'
 inputs:
-  dockerenabled:
-    description: 'Build and push the Docker Image'
-    required: true
-    default: 'true'
-  dockerregistry:
+  docker-registry:
     description: 'Docker Registry'
     required: true
     default: 'registry.staffbase.com'
-  dockerimage:
+  docker-image:
     description: 'Docker Image'
     required: true
-  dockerusername:
+  docker-username:
     description: 'Username for the Docker Registry'
     required: false
-  dockerpassword:
+  docker-password:
     description: 'Password for the Docker Registry'
     required: false
-  dockerfile:
-    description: 'Path of the Dockerfile. Should be relative to input.workingdirectory'
+  docker-file:
+    description: 'Path of the Dockerfile. Should be relative to input.working-directory'
     required: true
     default: './Dockerfile'
-  dockerbuildargs:
+  docker-build-args:
     description: "List of build-time variables"
     required: false
-  dockerbuildtarget:
+  docker-build-target:
     description: "Sets the target stage to build"
     required: false
-  gitopsenabled:
-    description: 'Update manifest files in the GitOps repository'
-    required: true
-    default: 'true'
-  gitopsorganization:
+  gitops-organization:
     description: 'GitHub Organization for GitOps'
     required: true
     default: 'Staffbase'
-  gitopsrepository:
+  gitops-repository:
     description: 'GitHub Repository for GitOps'
     required: true
     default: 'mops'
-  gitopsuser:
+  gitops-user:
     description: 'GitHub User for GitOps'
     required: true
     default: 'Staffbot'
-  gitopsemail:
+  gitops-email:
     description: 'GitHub User for GitOps'
     required: true
     default: 'staffbot@staffbase.com'
-  gitopstoken:
+  gitops-token:
     description: 'GitHub Token for GitOps'
     required: false
-  gitopsdev:
+  gitops-dev:
     description: 'Files which should be updated by the GitHub Action for DEV'
     required: false
-  gitopsstage:
+  gitops-stage:
     description: 'Files which should be updated by the GitHub Action for STAGE'
     required: false
-  gitopsprod:
+  gitops-prod:
     description: 'Files which should be updated by the GitHub Action for PROD'
     required: false
-  workingdirectory:
+  working-directory:
     description: 'The path relative to the repo root dir in which the GitOps action should be executed.'
     required: false
     default: '.'
 
 outputs:
-  dockertag:
+  docker-tag:
     description: 'Docker tag'
     value: ${{ steps.preparation.outputs.tag }}
 
@@ -102,9 +94,9 @@ runs:
           PUSH="false"
         fi
 
-        TAG_LIST="${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${TAG}"
+        TAG_LIST="${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${TAG}"
         if [[ ! -z "${LATEST}" ]]; then
-          TAG_LIST+=",${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${LATEST}"
+          TAG_LIST+=",${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${LATEST}"
         fi
 
         echo ::set-output name=tag_list::${TAG_LIST}
@@ -113,92 +105,98 @@ runs:
         echo ::set-output name=push::${PUSH}
 
     - name: Set up Docker Buildx
-      if: inputs.dockerenabled == 'true'
+      if: inputs.docker-username != '' && inputs.docker-password != ''
       uses: docker/setup-buildx-action@v2
 
     - name: Login to Registry
-      if: inputs.dockerenabled == 'true'
+      if: inputs.docker-username != '' && inputs.docker-password != ''
       uses: docker/login-action@v2
       with:
-        registry: ${{ inputs.dockerregistry }}
-        username: ${{ inputs.dockerusername }}
-        password: ${{ inputs.dockerpassword }}
+        registry: ${{ inputs.docker-registry }}
+        username: ${{ inputs.docker-username }}
+        password: ${{ inputs.docker-password }}
 
     - name: Build
       id: docker_build
-      if: inputs.dockerenabled == 'true'
+      if: inputs.docker-username != '' && inputs.docker-password != ''
       uses: docker/build-push-action@v3
       with:
-        context: ${{ inputs.workingdirectory }}
+        context: ${{ inputs.working-directory }}
         push: ${{ steps.preparation.outputs.push }}
-        file: ${{ inputs.workingdirectory }}/${{ inputs.dockerfile }}
-        target: ${{ inputs.dockerbuildtarget }}
-        build-args: ${{ inputs.dockerbuildargs }}
+        file: ${{ inputs.working-directory }}/${{ inputs.docker-file }}
+        target: ${{ inputs.docker-build-target }}
+        build-args: ${{ inputs.docker-build-args }}
         tags: ${{ steps.preparation.outputs.tag_list }}
         platforms: linux/amd64
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+    - name: Checkout GitOps Repository
+      if: inputs.gitops-token != ''
+      uses: actions/checkout@v3
+      with:
+        repository: ${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}
+        token: ${{ inputs.gitops-token }}
+        path: .github/${{ inputs.gitops-repository }}
+
     - name: Update Docker Image in Repository
-      if: inputs.gitopsenabled == 'true'
+      if: inputs.gitops-token != ''
+      working-directory: .github/${{ inputs.gitops-repository }}
       shell: bash
       run: |
         commit_changes () {
           if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-            git add . && git commit -m "Release ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
+            git add . && git commit -m "Release ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
             # In case there was another push in the meantime, we pull it again
-            git pull --rebase https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
-            git push https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git
+            git pull --rebase https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
+            git push https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
           fi
         }
 
-        # download and install yq
-        sudo wget -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/3.4.1/yq_linux_amd64
-        sudo chmod +x /usr/local/bin/yq
+        # configure git user
+        git config --global user.email "${{ inputs.gitops-email }}" && git config --global user.name "${{ inputs.gitops-user }}"
 
-        git config --global user.email "${{ inputs.gitopsemail }}" && git config --global user.name "${{ inputs.gitopsuser }}"
-
-        git clone https://${{ inputs.gitopsuser }}:${{ inputs.gitopstoken }}@github.com/${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }}.git .github/${{ inputs.gitopsrepository }}
-        cd .github/${{ inputs.gitopsrepository }}
-        echo "Repository ${{ inputs.gitopsorganization }}/${{ inputs.gitopsrepository }} was cloned successfully "
-
-        if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && -n "${{ inputs.gitopsstage }}" ]]; then
+        if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && -n "${{ inputs.gitops-stage }}" ]]; then
           echo "Run update for STAGE"
           while IFS= read -r line; do
+            array=($line)
             echo "Check if path $line exists and get old current version"
-            yq r -e $line
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-          done <<< "${{ inputs.gitopsstage }}"
+            yq -e .${array[1]} ${array[0]}
+            echo "Run update $line ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
+            yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
+          done <<< "${{ inputs.gitops-stage }}"
           commit_changes
 
-        elif [[ $GITHUB_REF == refs/heads/dev && -n "${{ inputs.gitopsdev }}" ]]; then
+        elif [[ $GITHUB_REF == refs/heads/dev && -n "${{ inputs.gitops-dev }}" ]]; then
           echo "Run update for DEV"
           while IFS= read -r line; do
+            array=($line)
             echo "Check if path $line exists and get old current version"
-            yq r -e $line
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-          done <<< "${{ inputs.gitopsdev }}"
+            yq -e .${array[1]} ${array[0]}
+            echo "Run update $line ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
+            yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
+          done <<< "${{ inputs.gitops-dev }}"
           commit_changes
 
-        elif [[ $GITHUB_REF == refs/tags/* && -n "${{ inputs.gitopsprod }}" ]]; then
+        elif [[ $GITHUB_REF == refs/tags/* && -n "${{ inputs.gitops-prod }}" ]]; then
           echo "Run update for PROD"
           while IFS= read -r line; do
+            array=($line)
             echo "Check if path $line exists and get old current version"
-            yq r -e $line
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-          done <<< "${{ inputs.gitopsprod }}"
+            yq -e .${array[1]} ${array[0]}
+            echo "Run update $line ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
+            yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
+          done <<< "${{ inputs.gitops-prod }}"
           commit_changes
 
-        elif [[ -n "${{ inputs.gitopsdev }}" ]]; then
+        elif [[ -n "${{ inputs.gitops-dev }}" ]]; then
           echo "Simulate update for DEV"
           while IFS= read -r line; do
+            array=($line)
             echo "Check if path $line exists and get old current version"
-            yq r -e $line
-            echo "Run update $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}"
-            yq w -i $line ${{ inputs.dockerregistry }}/${{ inputs.dockerimage }}:${{ steps.preparation.outputs.tag }}
-          done <<< "${{ inputs.gitopsdev }}"
+            yq -e .${array[1]} ${array[0]}
+            echo "Run update $line ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
+            yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
+          done <<< "${{ inputs.gitops-dev }}"
           commit_changes
         fi
