@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: GitOps (build, push and deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v3
+        uses: Staffbase/gitops-github-action@v4
         with:
           docker-username: ${{ secrets.DOCKER_USERNAME }}
           docker-password: ${{ secrets.DOCKER_PASSWORD }}
@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: GitOps (build and push a new Docker image)
-        uses: Staffbase/gitops-github-action@v3
+        uses: Staffbase/gitops-github-action@v4
         with:
           docker-username: ${{ secrets.DOCKER_USERNAME }}
           docker-password: ${{ secrets.DOCKER_PASSWORD }}
@@ -91,7 +91,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: GitOps (deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v3
+        uses: Staffbase/gitops-github-action@v4
         with:
           docker-image: private/diablo-redbook
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
