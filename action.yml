@@ -146,7 +146,15 @@ runs:
       run: |
         commit_changes () {
           if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-            git add . && git commit -m "Release ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
+            git add .
+
+            # commit with no errors if there are no changes
+            if git diff-index --quiet HEAD; then
+              echo "There were no changes..."
+              return
+            fi
+
+            git commit -m "Release ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
             # In case there was another push in the meantime, we pull it again
             git pull --rebase https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
             git push https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
