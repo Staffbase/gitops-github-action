@@ -1,5 +1,7 @@
-name: 'GitOps'
-description: 'This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your service and deploys the new version at our Kubernetes clusters.'
+name: 'Docker and GitOps Commit'
+description: 'Build and push the Docker image and commits the new version to your GitOps repo.'
+author: 'Staffbase GmbH'
+
 inputs:
   docker-registry:
     description: 'Docker Registry'
@@ -200,3 +202,7 @@ runs:
           done <<< "${{ inputs.gitops-dev }}"
           commit_changes
         fi
+
+branding:
+  icon: 'git-merge'
+  color: 'blue'
