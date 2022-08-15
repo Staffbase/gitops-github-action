@@ -54,6 +54,9 @@ inputs:
   gitops-prod:
     description: 'Files which should be updated by the GitHub Action for PROD'
     required: false
+  jfrog-config:
+    description: 'The configuration for JFrog'
+    required: false
   working-directory:
     description: 'The path relative to the repo root dir in which the GitOps action should be executed.'
     required: false
@@ -118,8 +121,24 @@ runs:
         username: ${{ inputs.docker-username }}
         password: ${{ inputs.docker-password }}
 
+    # - name: Build
+    #   id: docker_build
+    #   if: inputs.docker-username != '' && inputs.docker-password != ''
+    #   uses: docker/build-push-action@v3
+    #   with:
+    #     context: ${{ inputs.working-directory }}
+    #     # push: ${{ steps.preparation.outputs.push }}
+    #     file: ${{ inputs.working-directory }}/${{ inputs.docker-file }}
+    #     target: ${{ inputs.docker-build-target }}
+    #     build-args: ${{ inputs.docker-build-args }}
+    #     tags: ${{ steps.preparation.outputs.tag_list }}
+    #     platforms: linux/amd64
+    #     cache-from: type=gha
+    #     cache-to: type=gha,mode=max
+    #     load: true
+
     - name: Build
-      id: docker_build
+      id: docker_push
       if: inputs.docker-username != '' && inputs.docker-password != ''
       uses: docker/build-push-action@v3
       with:
@@ -132,6 +151,21 @@ runs:
         platforms: linux/amd64
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    - name: Setup JFrog Cli
+      if: inputs.jfrog-config != ''
+      uses: jfrog/setup-jfrog-cli@v2
+      env:
+        JF_ENV_1: ${{ inputs.jfrog-config }}
+
+    - name: Scan Docker Image
+      if: inputs.jfrog-config != ''
+      shell: bash
+      run: |
+        echo '${{ inputs.docker-password }}' | docker login ${{ inputs.docker-registry }} -u '${{ inputs.docker-username }}' --password-stdin
+        docker pull ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}
+        jf docker scan ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}
+        docker logout
 
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
