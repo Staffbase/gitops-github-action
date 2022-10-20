@@ -101,10 +101,10 @@ runs:
           TAG_LIST+=",${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${LATEST}"
         fi
 
-        echo ::set-output name=tag_list::${TAG_LIST}
-        echo ::set-output name=tag::${TAG}
-        echo ::set-output name=latest::${LATEST}
-        echo ::set-output name=push::${PUSH}
+        echo "tag_list=$TAG_LIST" >> $GITHUB_OUTPUT
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "latest=$LATEST" >> $GITHUB_OUTPUT
+        echo "push=$PUSH" >> $GITHUB_OUTPUT
 
     - name: Set up Docker Buildx
       if: inputs.docker-username != '' && inputs.docker-password != ''
