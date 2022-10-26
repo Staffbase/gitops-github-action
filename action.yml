@@ -146,6 +146,12 @@ runs:
       working-directory: .github/${{ inputs.gitops-repository }}
       shell: bash
       run: |
+        push_to_gitops_repo () {
+          # In case there was another push in the meantime, we pull it again
+          git pull --rebase https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
+          git push https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
+        }
+
         commit_changes () {
           if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
             git add .
@@ -157,9 +163,9 @@ runs:
             fi
 
             git commit -m "Release ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
-            # In case there was another push in the meantime, we pull it again
-            git pull --rebase https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
-            git push https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
+
+            # retry push attempt since rejections can still happen (even with pull before push)
+            push_to_gitops_repo || push_to_gitops_repo || push_to_gitops_repo
           fi
         }
 
