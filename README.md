@@ -36,8 +36,8 @@ jobs:
       - name: GitOps (build, push and deploy a new Docker image)
         uses: Staffbase/gitops-github-action@v4
         with:
-          docker-username: ${{ secrets.DOCKER_USERNAME }}
-          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          docker-username: ${{ secrets.ARTIFACTORY_USERNAME }}
+          docker-password: ${{ secrets.ARTIFACTORY_PASSWORD }}
           docker-image: private/diablo-redbook
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
           gitops-dev: |-
@@ -68,8 +68,8 @@ jobs:
       - name: GitOps (build and push a new Docker image)
         uses: Staffbase/gitops-github-action@v4
         with:
-          docker-username: ${{ secrets.DOCKER_USERNAME }}
-          docker-password: ${{ secrets.DOCKER_PASSWORD }}
+          docker-username: ${{ secrets.ARTIFACTORY_USERNAME }}
+          docker-password: ${{ secrets.ARTIFACTORY_PASSWORD }}
           docker-image: private/diablo-redbook
 ```
 
@@ -107,7 +107,7 @@ jobs:
 
 | Name                  | Description                                                                                                                    | Default                  |
 |-----------------------|--------------------------------------------------------------------------------------------------------------------------------|--------------------------|
-| `docker-registry`     | Docker Registry                                                                                                                | `registry.staffbase.com` |
+| `docker-registry`     | Docker Registry                                                                                                                | `staffbase.jfrog.io`     |
 | `docker-image`        | Docker Image                                                                                                                   |                          |
 | `docker-username`     | Username for the Docker Registry                                                                                               |                          |
 | `docker-password`     | Password for the Docker Registry                                                                                               |                          |
