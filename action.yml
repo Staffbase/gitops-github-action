@@ -6,7 +6,7 @@ inputs:
   docker-registry:
     description: 'Docker Registry'
     required: true
-    default: 'registry.staffbase.com'
+    default: 'staffbase.jfrog.io'
   docker-image:
     description: 'Docker Image'
     required: true
