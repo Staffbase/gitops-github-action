@@ -214,7 +214,6 @@ runs:
             echo "Run update $line ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
             yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
           done <<< "${{ inputs.gitops-dev }}"
-          commit_changes
         fi
 
 branding:
