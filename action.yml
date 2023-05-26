@@ -23,6 +23,12 @@ inputs:
   docker-build-args:
     description: "List of build-time variables"
     required: false
+  docker-build-secrets:
+    description: "List of secrets to expose to the build (e.g., key=string, GIT_AUTH_TOKEN=mytoken)"
+    required: false
+  docker-build-secret-files:
+    description: "List of secret files to expose to the build (e.g., key=filename, MY_SECRET=./secret.txt)"
+    required: false
   docker-build-target:
     description: "Sets the target stage to build"
     required: false
@@ -129,6 +135,8 @@ runs:
         target: ${{ inputs.docker-build-target }}
         build-args: ${{ inputs.docker-build-args }}
         tags: ${{ steps.preparation.outputs.tag_list }}
+        secrets: ${{ inputs.docker-build-secrets }}
+        secret-files: ${{ inputs.docker-build-secret-files }}
         platforms: linux/amd64
         cache-from: type=gha
         cache-to: type=gha,mode=max
