@@ -105,26 +105,27 @@ jobs:
 
 ## Inputs
 
-| Name                        | Description                                                                                                                    | Default                  |
-|-----------------------------|--------------------------------------------------------------------------------------------------------------------------------|--------------------------|
-| `docker-registry`           | Docker Registry                                                                                                                | `staffbase.jfrog.io`     |
-| `docker-image`              | Docker Image                                                                                                                   |                          |
-| `docker-username`           | Username for the Docker Registry                                                                                               |                          |
-| `docker-password`           | Password for the Docker Registry                                                                                               |                          |
-| `docker-file`               | Dockerfile                                                                                                                     | `./Dockerfile`           |
-| `docker-build-args`         | List of build-time variables                                                                                                   |                          |
-| `docker-build-secrets`      | List of secrets to expose to the build (e.g., key=string, GIT_AUTH_TOKEN=mytoken)                                              |                          |
-| `docker-build-secret-files` | List of secret files to expose to the build (e.g., key=filename, MY_SECRET=./secret.txt)                                       |                          |
-| `docker-build-target`       | Sets the target stage to build like: "runtime"                                                                                 |                          |
-| `gitops-organization`       | GitHub Organization for GitOps                                                                                                 | `Staffbase`              |
-| `gitops-repository`         | GitHub Repository for GitOps                                                                                                   | `mops`                   |
-| `gitops-user`               | GitHub User for GitOps                                                                                                         | `Staffbot`               |
-| `gitops-email`              | GitHub Email for GitOps                                                                                                        | `staffbot@staffbase.com` |
-| `gitops-token`              | GitHub Token for GitOps                                                                                                        |                          |
-| `gitops-dev`                | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository              |                          |
-| `gitops-stage`              | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository            |                          |
-| `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                          |
-| `working-directory`         | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                      |
+| Name                        | Description                                                                                                                    | Default                     |
+|-----------------------------|--------------------------------------------------------------------------------------------------------------------------------|-----------------------------|
+| `docker-registry`           | Docker Registry                                                                                                                | `staffbase.jfrog.io`        |
+| `docker-image`              | Docker Image                                                                                                                   |                             |
+| `docker-username`           | Username for the Docker Registry                                                                                               |                             |
+| `docker-password`           | Password for the Docker Registry                                                                                               |                             |
+| `docker-file`               | Dockerfile                                                                                                                     | `./Dockerfile`              |
+| `docker-build-args`         | List of build-time variables                                                                                                   |                             |
+| `docker-build-secrets`      | List of secrets to expose to the build (e.g., key=string, GIT_AUTH_TOKEN=mytoken)                                              |                             |
+| `docker-build-secret-files` | List of secret files to expose to the build (e.g., key=filename, MY_SECRET=./secret.txt)                                       |                             |
+| `docker-build-target`       | Sets the target stage to build like: "runtime"                                                                                 |                             |
+| `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `mode=min,inline-only=true` |
+| `gitops-organization`       | GitHub Organization for GitOps                                                                                                 | `Staffbase`                 |
+| `gitops-repository`         | GitHub Repository for GitOps                                                                                                   | `mops`                      |
+| `gitops-user`               | GitHub User for GitOps                                                                                                         | `Staffbot`                  |
+| `gitops-email`              | GitHub Email for GitOps                                                                                                        | `staffbot@staffbase.com`    |
+| `gitops-token`              | GitHub Token for GitOps                                                                                                        |                             |
+| `gitops-dev`                | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository              |                             |
+| `gitops-stage`              | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository            |                             |
+| `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                             |
+| `working-directory`         | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                         |
 
 ## Contributing
 
