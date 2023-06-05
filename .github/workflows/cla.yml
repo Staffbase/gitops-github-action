@@ -22,4 +22,4 @@ jobs:
           path-to-signatures: 'signatures/version1/cla.json'
           path-to-document: 'https://github.com/Staffbase/gitops-github-action/blob/main/CLA.md'
           branch: 'signatures'
-          allowlist: flaxel,ricoberger,bot*
+          allowlist: 0x46616c6b,flaxel,ricoberger,timdittler,bot*
