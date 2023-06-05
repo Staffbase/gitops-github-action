@@ -140,7 +140,7 @@ runs:
         platforms: linux/amd64
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        provenance: mode=min,inline-only=true
+        provenance: false
 
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
