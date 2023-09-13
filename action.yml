@@ -148,7 +148,7 @@ runs:
 
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: ${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}
         token: ${{ inputs.gitops-token }}
