@@ -147,3 +147,8 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE.md](LIC
     </td>
   </tr>
 </table>
+
+## Releasing new versions
+
+Go to the release overview page and publish the draft release with a new version number.
+Make sure to update the floating version commit.
