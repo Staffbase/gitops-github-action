@@ -32,6 +32,10 @@ inputs:
   docker-build-target:
     description: "Sets the target stage to build"
     required: false
+  docker-build-provenance:
+    description: "Generate provenance attestation for the build"
+    required: false
+    default: 'mode=min,inline-only=true'
   gitops-organization:
     description: 'GitHub Organization for GitOps'
     required: true
@@ -140,7 +144,7 @@ runs:
         platforms: linux/amd64
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        provenance: false
+        provenance: ${{ inputs.docker-build-provenance }}
 
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
