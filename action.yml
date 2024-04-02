@@ -35,7 +35,7 @@ inputs:
   docker-build-provenance:
     description: "Generate provenance attestation for the build"
     required: false
-    default: 'mode=min,inline-only=true'
+    default: 'false'
   gitops-organization:
     description: 'GitHub Organization for GitOps'
     required: true

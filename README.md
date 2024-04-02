@@ -116,7 +116,7 @@ jobs:
 | `docker-build-secrets`      | List of secrets to expose to the build (e.g., key=string, GIT_AUTH_TOKEN=mytoken)                                              |                             |
 | `docker-build-secret-files` | List of secret files to expose to the build (e.g., key=filename, MY_SECRET=./secret.txt)                                       |                             |
 | `docker-build-target`       | Sets the target stage to build like: "runtime"                                                                                 |                             |
-| `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `mode=min,inline-only=true` |
+| `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `false`                     |
 | `gitops-organization`       | GitHub Organization for GitOps                                                                                                 | `Staffbase`                 |
 | `gitops-repository`         | GitHub Repository for GitOps                                                                                                   | `mops`                      |
 | `gitops-user`               | GitHub User for GitOps                                                                                                         | `Staffbot`                  |
