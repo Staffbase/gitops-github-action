@@ -7,6 +7,10 @@ inputs:
     description: 'Docker Registry'
     required: true
     default: 'staffbase.jfrog.io'
+  docker-registry-api:
+    description: 'Docker Registry API'
+    required: false
+    default: 'https://staffbase.jfrog.io/artifactory/api/docker/'
   docker-image:
     description: 'Docker Image'
     required: true
@@ -34,6 +38,10 @@ inputs:
     required: false
   docker-build-provenance:
     description: "Generate provenance attestation for the build"
+    required: false
+    default: 'false'
+  docker-disable-retagging:
+    description: 'Disable retagging of existing images'
     required: false
     default: 'false'
   gitops-organization:
@@ -81,6 +89,7 @@ runs:
       id: preparation
       shell: bash
       run: |
+        BUILD="true"
         if [[ $GITHUB_REF == refs/heads/master ]]; then
           TAG="master-${GITHUB_SHA::8}"
           LATEST="master"
@@ -97,10 +106,12 @@ runs:
           TAG="${GITHUB_REF:11}"
           LATEST="latest"
           PUSH="true"
+          BUILD="${{ inputs.docker-disable-retagging }}"
         elif [[ $GITHUB_REF == refs/tags/* ]]; then
           TAG="${GITHUB_REF:10}"
           LATEST="latest"
           PUSH="true"
+          BUILD="${{ inputs.docker-disable-retagging }}"
         else
           TAG="${GITHUB_SHA::8}"
           PUSH="false"
@@ -111,10 +122,11 @@ runs:
           TAG_LIST+=",${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${LATEST}"
         fi
 
-        echo "tag_list=$TAG_LIST" >> $GITHUB_OUTPUT
-        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "build=$BUILD" >> $GITHUB_OUTPUT
         echo "latest=$LATEST" >> $GITHUB_OUTPUT
         echo "push=$PUSH" >> $GITHUB_OUTPUT
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "tag_list=$TAG_LIST" >> $GITHUB_OUTPUT
 
     - name: Set up Docker Buildx
       if: inputs.docker-username != '' && inputs.docker-password != ''
@@ -128,9 +140,10 @@ runs:
         username: ${{ inputs.docker-username }}
         password: ${{ inputs.docker-password }}
 
+
     - name: Build
       id: docker_build
-      if: inputs.docker-username != '' && inputs.docker-password != ''
+      if: steps.preparation.outputs.build == 'true' && inputs.docker-username != '' && inputs.docker-password != ''
       uses: docker/build-push-action@v5
       with:
         context: ${{ inputs.working-directory }}
@@ -145,6 +158,41 @@ runs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         provenance: ${{ inputs.docker-build-provenance }}
+
+    - name: Retag Existing Image
+      id: docker_retag
+      if: steps.preparation.outputs.build == 'false'
+      shell: bash
+      run: |
+        CHECK_EXISTING_TAGS="master-${GITHUB_SHA::8} main-${GITHUB_SHA::8}"
+        CONTENT_TYPE="application/vnd.docker.distribution.manifest.v2+json"
+
+        # split docker-image on / into repository and image
+        REPO=$(echo ${{ inputs.docker-image}} | cut -d'/' -f1)
+        IMAGE=$(echo ${{ inputs.docker-image}} | cut -d'/' -f2)
+
+        echo "CHECK_EXISTING_TAGS: ${CHECK_EXISTING_TAGS}"
+        echo "RELEASE_TAG: ${RELEASE_TAG:1}"
+        echo "Check if an image already exists for ${{ inputs.docker-image }}:main|master-${GITHUB_SHA::8} 🐋 ⬇"
+
+        MANIFEST=""
+        for tag in $CHECK_EXISTING_TAGS; do
+          MANIFEST=$(curl -H "Accept: ${CONTENT_TYPE}" -u "${{ inputs.docker-username }}:${{ inputs.docker-password }}" "${{ inputs.docker-registry-api }}${REPO}/v2/{$IMAGE}/manifests/${tag}")
+
+          if [[ $MANIFEST == *"errors"* ]]; then
+            echo "No image found for ${{ inputs.docker-image }}:${tag} 🚫"
+            continue
+          else
+            echo "Image found for ${{ inputs.docker-image }}:${tag} 🐋 ⬇"
+            break
+          fi
+          # Exit here if no existing manifest was found
+          exit 1
+        done
+
+        echo "Retagging image with release version and :latest tags for ${{ inputs.docker-image }} 🏷"
+        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u "${{ inputs.docker-username }}:${{ inputs.docker-password }}" -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${REPO}/v2/{$IMAGE}/manifests/${{ steps.preparation.outputs.tag }}"
+        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u "${{ inputs.docker-username }}:${{ inputs.docker-password }}" -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${REPO}/v2/{$IMAGE}/manifests/${{ steps.preparation.outputs.latest }}"
 
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
