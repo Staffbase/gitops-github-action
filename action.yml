@@ -123,7 +123,6 @@ runs:
         fi
 
         echo "build=$BUILD" >> $GITHUB_OUTPUT
-        echo "image_name=${{ inputs.docker-registry }}/${{ inputs.docker-image }}" >> $GITHUB_OUTPUT
         echo "latest=$LATEST" >> $GITHUB_OUTPUT
         echo "push=$PUSH" >> $GITHUB_OUTPUT
         echo "tag=$TAG" >> $GITHUB_OUTPUT
@@ -160,7 +159,7 @@ runs:
         cache-to: type=gha,mode=max
         provenance: ${{ inputs.docker-build-provenance }}
 
-    - name: Retag existing image
+    - name: Retag Existing Image
       id: docker_retag
       if: steps.preparation.outputs.build == 'false'
       shell: bash
@@ -174,24 +173,24 @@ runs:
 
         echo "CHECK_EXISTING_TAGS: ${CHECK_EXISTING_TAGS}"
         echo "RELEASE_TAG: ${RELEASE_TAG:1}"
-        echo "Check if an image already exists for ${{steps.preparation.outputs.image_name }}:main|master-${GITHUB_SHA::8} 🐋 ⬇"
+        echo "Check if an image already exists for ${{ inputs.docker-image }}:main|master-${GITHUB_SHA::8} 🐋 ⬇"
 
         MANIFEST=""
         for tag in $CHECK_EXISTING_TAGS; do
           MANIFEST=$(curl -H "Accept: ${CONTENT_TYPE}" -u "${{ inputs.docker-username }}:${{ inputs.docker-password }}" "${{ inputs.docker-registry-api }}${REPO}/v2/{$IMAGE}/manifests/${tag}")
 
           if [[ $MANIFEST == *"errors"* ]]; then
-            echo "No image found for ${{ steps.preparation.outputs.image_name }}:${tag} 🚫"
+            echo "No image found for ${{ inputs.docker-image }}:${tag} 🚫"
             continue
           else
-            echo "Image found for ${{ steps.preparation.outputs.image_name }}:${tag} 🐋 ⬇"
+            echo "Image found for ${{ inputs.docker-image }}:${tag} 🐋 ⬇"
             break
           fi
           # Exit here if no existing manifest was found
           exit 1
         done
 
-        echo "Retagging image with release version and :latest tags for ${{ steps.preparation.outputs.image_name }} 🏷"
+        echo "Retagging image with release version and :latest tags for ${{ inputs.docker-image }} 🏷"
         curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u "${{ inputs.docker-username }}:${{ inputs.docker-password }}" -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${REPO}/v2/{$IMAGE}/manifests/${{ steps.preparation.outputs.tag }}"
         curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u "${{ inputs.docker-username }}:${{ inputs.docker-password }}" -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${REPO}/v2/{$IMAGE}/manifests/${{ steps.preparation.outputs.latest }}"
 
