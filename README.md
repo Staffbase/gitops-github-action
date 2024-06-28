@@ -111,6 +111,7 @@ jobs:
 | `docker-registry`           | Docker Registry                                                                                                                | `staffbase.jfrog.io`                                 |
 | `docker-registry-api`       | Docker Registry API (used for retagging without pulling)                                                                       | `https://staffbase.jfrog.io/artifactory/api/docker/` |
 | `docker-image`              | Docker Image                                                                                                                   |                                                      |
+| `docker-custom-tag`         | Docker Custom Tag to be set on the image                                                                                       |                                                      |
 | `docker-username`           | Username for the Docker Registry                                                                                               |                                                      |
 | `docker-password`           | Password for the Docker Registry                                                                                               |                                                      |
 | `docker-file`               | Dockerfile                                                                                                                     | `./Dockerfile`                                       |
