@@ -152,7 +152,7 @@ runs:
     - name: Build
       id: docker_build
       if: steps.preparation.outputs.build == 'true' && inputs.docker-username != '' && inputs.docker-password != ''
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: ${{ inputs.working-directory }}
         push: ${{ steps.preparation.outputs.push }}
