@@ -6,11 +6,11 @@ inputs:
   docker-registry:
     description: 'Docker Registry'
     required: true
-    default: 'staffbase.jfrog.io'
+    default: 'registry.staffbase.com'
   docker-registry-api:
     description: 'Docker Registry API'
     required: false
-    default: 'https://staffbase.jfrog.io/artifactory/api/docker/'
+    default: 'https://registry.staffbase.com/v2/'
   docker-image:
     description: 'Docker Image'
     required: true
@@ -175,17 +175,13 @@ runs:
         CHECK_EXISTING_TAGS="master-${GITHUB_SHA::8} main-${GITHUB_SHA::8}"
         CONTENT_TYPE="application/vnd.docker.distribution.manifest.v2+json"
 
-        # split docker-image on / into repository and image
-        REPO=$(echo ${{ inputs.docker-image}} | cut -d'/' -f1)
-        IMAGE=$(echo ${{ inputs.docker-image}} | cut -d'/' -f2)
-
         echo "CHECK_EXISTING_TAGS: ${CHECK_EXISTING_TAGS}"
         echo "RELEASE_TAG: ${RELEASE_TAG:1}"
         echo "Check if an image already exists for ${{ inputs.docker-image }}:main|master-${GITHUB_SHA::8} 🐋 ⬇"
 
         MANIFEST=""
         for tag in $CHECK_EXISTING_TAGS; do
-          MANIFEST=$(curl -H "Accept: ${CONTENT_TYPE}" -u "${{ inputs.docker-username }}:${{ inputs.docker-password }}" "${{ inputs.docker-registry-api }}${REPO}/v2/{$IMAGE}/manifests/${tag}")
+          MANIFEST=$(curl -H "Accept: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${tag}")
 
           if [[ $MANIFEST == *"errors"* ]]; then
             echo "No image found for ${{ inputs.docker-image }}:${tag} 🚫"
@@ -199,8 +195,8 @@ runs:
         done
 
         echo "Retagging image with release version and :latest tags for ${{ inputs.docker-image }} 🏷"
-        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u "${{ inputs.docker-username }}:${{ inputs.docker-password }}" -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${REPO}/v2/{$IMAGE}/manifests/${{ steps.preparation.outputs.tag }}"
-        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u "${{ inputs.docker-username }}:${{ inputs.docker-password }}" -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${REPO}/v2/{$IMAGE}/manifests/${{ steps.preparation.outputs.latest }}"
+        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.tag }}"
+        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.latest }}"
 
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
