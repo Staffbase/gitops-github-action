@@ -28,17 +28,17 @@ jobs:
   ci-cd:
     name: Build, Push and Deploy
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: GitOps (build, push and deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v5
+        uses: Staffbase/gitops-github-action@v6.0
         with:
-          docker-username: ${{ secrets.ARTIFACTORY_USERNAME }}
-          docker-password: ${{ secrets.ARTIFACTORY_PASSWORD }}
+          docker-username: ${{ secrets.HARBOR_USERNAME }}
+          docker-password: ${{ secrets.HARBOR_PASSWORD }}
           docker-image: private/diablo-redbook
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
           gitops-dev: |-
@@ -60,17 +60,17 @@ jobs:
   ci-cd:
     name: Build and Push
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: GitOps (build and push a new Docker image)
-        uses: Staffbase/gitops-github-action@v5
+        uses: Staffbase/gitops-github-action@v6.0
         with:
-          docker-username: ${{ secrets.ARTIFACTORY_USERNAME }}
-          docker-password: ${{ secrets.ARTIFACTORY_PASSWORD }}
+          docker-username: ${{ secrets.HARBOR_USERNAME }}
+          docker-password: ${{ secrets.HARBOR_PASSWORD }}
           docker-image: private/diablo-redbook
 ```
 
@@ -85,14 +85,14 @@ jobs:
   ci-cd:
     name: Deploy
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: GitOps (deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v5
+        uses: Staffbase/gitops-github-action@v6.0
         with:
           docker-image: private/diablo-redbook
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
