@@ -179,28 +179,37 @@ runs:
         echo "RELEASE_TAG: ${RELEASE_TAG:1}"
         echo "Check if an image already exists for ${{ inputs.docker-image }}:main|master-${GITHUB_SHA::8} 🐋 ⬇"
 
-        MANIFEST=""
-        for tag in $CHECK_EXISTING_TAGS; do
-          MANIFEST=$(curl -H "Accept: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${tag}")
+        foundImage=false
 
-          if [[ $MANIFEST == *"errors"* ]]; then
-            echo "No image found for ${{ inputs.docker-image }}:${tag} 🚫"
-            continue
-          else
-            echo "Image found for ${{ inputs.docker-image }}:${tag} 🐋 ⬇"
-            break
-          fi
-          # Exit here if no existing manifest was found
-          exit 1
-        done
-
-        echo "Retagging image with release version and :latest tags for ${{ inputs.docker-image }} 🏷"
         end=$((SECONDS+300))
         while [ $SECONDS -lt $end ]; do
-          curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.tag }}" &&
-          curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.latest }}" && break
+
+          MANIFEST=""
+          for tag in $CHECK_EXISTING_TAGS; do
+            MANIFEST=$(curl -H "Accept: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${tag}")
+
+            if [[ $MANIFEST == *"errors"* ]]; then
+              echo "No image found for ${{ inputs.docker-image }}:${tag} 🚫"
+              continue
+            else
+              echo "Image found for ${{ inputs.docker-image }}:${tag} 🐋 ⬇"
+              foundImage=true
+              break 2
+            fi
+          done
+
           sleep 10
         done
+
+        if [[ $foundImage == false ]]; then
+          echo "No image found for ${{ inputs.docker-image }}:main|master-${GITHUB_SHA::8} 🚫 within 300 seconds"
+          exit 1
+        fi
+
+        echo "Retagging image with release version and :latest tags for ${{ inputs.docker-image }} 🏷"
+        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.tag }}"
+        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.latest }}"
+
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
       uses: actions/checkout@v4
