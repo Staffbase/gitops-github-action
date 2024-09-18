@@ -195,9 +195,12 @@ runs:
         done
 
         echo "Retagging image with release version and :latest tags for ${{ inputs.docker-image }} 🏷"
-        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.tag }}"
-        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.latest }}"
-
+        end=$((SECONDS+300))
+        while [ $SECONDS -lt $end ]; do
+          curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.tag }}" &&
+          curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.latest }}" && break
+          sleep 10
+        done
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
       uses: actions/checkout@v4
