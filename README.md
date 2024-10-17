@@ -131,6 +131,13 @@ jobs:
 | `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                                                      |
 | `working-directory`         | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                                                  |
 
+## Outputs
+
+| Name            | Description         |
+|-----------------|---------------------|
+| `docker-digest` | Digest of the image |
+| `docker-tag`    | Tag of the image    |
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
