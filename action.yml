@@ -84,6 +84,9 @@ outputs:
   docker-tag:
     description: 'Docker tag'
     value: ${{ steps.preparation.outputs.tag }}
+  docker-digest:
+    description: 'Docker digest'
+    value: ${{ steps.docker_build.outputs.digest }}
 
 runs:
   using: "composite"
@@ -292,16 +295,6 @@ runs:
             yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
           done <<< "${{ inputs.gitops-dev }}"
         fi
-
-    - name: Emit Image Build Event to Upwind.io
-      if: vars.UPWIND_CLIENT_ID != '' && secrets.UPWIND_CLIENT_SECRET != '' && vars.UPWIND_ORGANIZATION_ID != ''
-      uses: upwindsecurity/create-image-build-event-action@v2
-      with:
-        image: "${{ inputs.docker-image }}"
-        image_sha: "${{ steps.docker_build.outputs.digest }}"
-        upwind_client_id: ${{ vars.UPWIND_CLIENT_ID }}
-        upwind_client_secret: ${{ secrets.UPWIND_CLIENT_SECRET }}
-        upwind_organization_id: ${{ vars.UPWIND_ORGANIZATION_ID }}
 
 branding:
   icon: 'git-merge'
