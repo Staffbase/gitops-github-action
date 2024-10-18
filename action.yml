@@ -86,7 +86,7 @@ outputs:
     value: ${{ steps.preparation.outputs.tag }}
   docker-digest:
     description: 'Docker digest'
-    value: ${{ steps.docker_build.outputs.digest }}
+    value: ${{ steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
 
 runs:
   using: "composite"
@@ -212,6 +212,10 @@ runs:
         echo "Retagging image with release version and :latest tags for ${{ inputs.docker-image }} 🏷"
         curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.tag }}"
         curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.latest }}"
+
+        # Get the digest of the image
+        DIGEST=$(echo $MANIFEST | jq .config.digest | tr -d '"')
+        echo "digest=$DIGEST" >> $GITHUB_OUTPUT
 
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
