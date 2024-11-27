@@ -313,7 +313,7 @@ runs:
       env:
         UPWIND_CLIENT_SECRET: ${{ inputs.upwind-client-secret }}
       if: "${{ inputs.upwind-client-id != '' && env.UPWIND_CLIENT_SECRET != '' && inputs.upwind-organization-id != '' }}"
-      uses: upwindsecurity/create-image-build-event-action@v2
+      uses: upwindsecurity/create-image-build-event-action@v3
       continue-on-error: true
       with:
         image: ${{ inputs.docker-image }}
