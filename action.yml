@@ -43,6 +43,9 @@ inputs:
     description: "Generate provenance attestation for the build"
     required: false
     default: 'false'
+  docker-build-outputs:
+    description: "Custom output destinations (e.g., type=registry,push=true,compression=zstd,force-compression=true). When set, this replaces the default push behavior - include push=true if pushing is desired."
+    required: false
   docker-disable-retagging:
     description: 'Disable retagging of existing images'
     required: false
@@ -167,7 +170,7 @@ runs:
       uses: docker/build-push-action@v6
       with:
         context: ${{ inputs.working-directory }}
-        push: ${{ steps.preparation.outputs.push }}
+        push: ${{ inputs.docker-build-outputs == '' && steps.preparation.outputs.push || 'false' }}
         file: ${{ inputs.working-directory }}/${{ inputs.docker-file }}
         target: ${{ inputs.docker-build-target }}
         build-args: ${{ inputs.docker-build-args }}
@@ -178,6 +181,7 @@ runs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         provenance: ${{ inputs.docker-build-provenance }}
+        outputs: ${{ inputs.docker-build-outputs }}
 
     - name: Retag Existing Image
       id: docker_retag
