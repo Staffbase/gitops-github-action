@@ -221,20 +221,24 @@ runs:
       shell: bash
       run: |
         CHECK_EXISTING_TAGS="master-${GITHUB_SHA::8} main-${GITHUB_SHA::8}"
-        CONTENT_TYPE="application/vnd.docker.distribution.manifest.v2+json"
+        # Accept both single-arch manifests and multi-arch manifest lists/indexes
+        ACCEPT_HEADER="application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json"
 
         echo "CHECK_EXISTING_TAGS: ${CHECK_EXISTING_TAGS}"
         echo "RELEASE_TAG: ${RELEASE_TAG:1}"
         echo "Check if an image already exists for ${{ inputs.docker-image }}:main|master-${GITHUB_SHA::8} 🐋 ⬇"
 
         foundImage=false
+        DETECTED_CONTENT_TYPE=""
+        DIGEST=""
 
         end=$((SECONDS+300))
         while [ $SECONDS -lt $end ]; do
 
           MANIFEST=""
           for tag in $CHECK_EXISTING_TAGS; do
-            MANIFEST=$(curl -H "Accept: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${tag}")
+            # Dump headers to file to extract Content-Type and Digest later
+            MANIFEST=$(curl -s -D headers.txt -H "Accept: ${ACCEPT_HEADER}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${tag}")
 
             if [[ $MANIFEST == *"errors"* ]]; then
               echo "No image found for ${{ inputs.docker-image }}:${tag} 🚫"
@@ -242,6 +246,13 @@ runs:
             else
               echo "Image found for ${{ inputs.docker-image }}:${tag} 🐋 ⬇"
               foundImage=true
+        
+              # Extract the Content-Type returned by registry
+              DETECTED_CONTENT_TYPE=$(grep -i "^Content-Type:" headers.txt | cut -d' ' -f2 | tr -d '\r')
+        
+              # Extract the correct digest from headers (works for lists and single images)
+              DIGEST=$(grep -i "^Docker-Content-Digest:" headers.txt | cut -d' ' -f2 | tr -d '\r')
+        
               break 2
             fi
           done
@@ -255,11 +266,12 @@ runs:
         fi
 
         echo "Retagging image with release version and :latest tags for ${{ inputs.docker-image }} 🏷"
-        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.tag }}"
-        curl --fail-with-body -X PUT -H "Content-Type: ${CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.latest }}"
+        echo "Using Content-Type: ${DETECTED_CONTENT_TYPE}"
+        
+        # Use the detected Content-Type to PUT the manifest back
+        curl --fail-with-body -X PUT -H "Content-Type: ${DETECTED_CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.tag }}"
+        curl --fail-with-body -X PUT -H "Content-Type: ${DETECTED_CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.latest }}"
 
-        # Get the digest of the image
-        DIGEST=$(echo $MANIFEST | jq .config.digest | tr -d '"')
         echo "digest=$DIGEST" >> $GITHUB_OUTPUT
 
     - name: Checkout GitOps Repository
