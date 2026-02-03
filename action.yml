@@ -39,6 +39,10 @@ inputs:
   docker-build-target:
     description: "Sets the target stage to build"
     required: false
+  docker-build-platforms:
+    description: "Sets the target platforms for build"
+    required: false
+    default: 'linux/amd64'
   docker-build-provenance:
     description: "Generate provenance attestation for the build"
     required: false
@@ -151,6 +155,34 @@ runs:
         echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "tag_list=$TAG_LIST" >> $GITHUB_OUTPUT
 
+    - name: Verify Architecture Match
+      shell: bash
+      if: steps.preparation.outputs.build == 'true'
+      run: |
+        RUNNER_ARCH="${{ runner.arch }}" # X64 (AMD64) or ARM64
+        TARGET_PLATFORMS="${{ inputs.docker-build-platforms }}"
+        
+        echo "Runner CPU Architecture: $RUNNER_ARCH"
+        echo "Requested Build Platforms: $TARGET_PLATFORMS"
+
+        # Check for AMD64 mismatch (Runner is X64, but user requests ONLY arm64, OR user requests multi-arch which requires emulation)
+        if [[ "$RUNNER_ARCH" == "X64" ]]; then
+          if [[ "$TARGET_PLATFORMS" == *"linux/arm64"* ]]; then
+            echo "::error::Runner is X64 (Intel/AMD) but build includes 'linux/arm64'. This requires emulation. Aborting strictly."
+            exit 1
+          fi
+        fi
+
+        # Check for ARM64 mismatch
+        if [[ "$RUNNER_ARCH" == "ARM64" ]]; then
+          if [[ "$TARGET_PLATFORMS" == *"linux/amd64"* ]]; then
+            echo "::error::Runner is ARM64 (Apple Silicon/Graviton) but build includes 'linux/amd64'. This requires emulation. Aborting strictly."
+            exit 1
+          fi
+        fi
+        
+        echo "Architecture match verified for native build ✅"
+
     - name: Set up Docker Buildx
       if: inputs.docker-username != '' && inputs.docker-password != ''
       uses: docker/setup-buildx-action@v3
@@ -177,7 +209,7 @@ runs:
         tags: ${{ steps.preparation.outputs.tag_list }}
         secrets: ${{ inputs.docker-build-secrets }}
         secret-files: ${{ inputs.docker-build-secret-files }}
-        platforms: linux/amd64
+        platforms: ${{ inputs.docker-build-platforms }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         provenance: ${{ inputs.docker-build-provenance }}
