@@ -1,11 +1,13 @@
 # 🚀 GitHub Action for GitOps
 
-This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your service and deploys
+This GitHub Action can be used for our GitOps workflow. The GitHub Action will build and push the Docker image for your
+service and deploys
 the new version at your Kubernetes clusters.
 
 ## Requirement
 
-When you want to use this GitHub Action your GitHub repository should have a `dev` and `master` / `main` branch and it should use tags for
+When you want to use this GitHub Action your GitHub repository should have a `dev` and `master` / `main` branch and it
+should use tags for
 releases.
 
 - For the `dev` branch we will change the files specified under `gitops-dev`.
@@ -119,6 +121,7 @@ jobs:
 | `docker-build-secrets`      | List of secrets to expose to the build (e.g., key=string, GIT_AUTH_TOKEN=mytoken)                                              |                                                      |
 | `docker-build-secret-files` | List of secret files to expose to the build (e.g., key=filename, MY_SECRET=./secret.txt)                                       |                                                      |
 | `docker-build-target`       | Sets the target stage to build like: "runtime"                                                                                 |                                                      |
+| `docker-build-platforms`       | Sets the target platforms for build                                                                                 | linux/amd64 |
 | `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `false`                                              |
 | `docker-disable-retagging`  | Disables retagging of existing images and run a new build instead                                                              | `false`                                              |
 | `gitops-organization`       | GitHub Organization for GitOps                                                                                                 | `Staffbase`                                          |
@@ -140,7 +143,8 @@ jobs:
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull
+requests to us.
 
 ## License
 
@@ -161,4 +165,5 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE.md](LIC
 
 ## Releasing new versions
 
-Go to the release overview page and publish the draft release with a new version number. Make sure to update the floating version commit.
+Go to the release overview page and publish the draft release with a new version number. Make sure to update the
+floating version commit.
