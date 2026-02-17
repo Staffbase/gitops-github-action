@@ -39,7 +39,7 @@ jobs:
       - name: GitOps (build, push and deploy a new Docker image)
         uses: Staffbase/gitops-github-action@v6.0
         with:
-          docker-username: ${{ secrets.HARBOR_USERNAME }}
+          docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
           docker-image: private/diablo-redbook
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
@@ -71,7 +71,7 @@ jobs:
       - name: GitOps (build and push a new Docker image)
         uses: Staffbase/gitops-github-action@v6.0
         with:
-          docker-username: ${{ secrets.HARBOR_USERNAME }}
+          docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
           docker-image: private/diablo-redbook
 ```
