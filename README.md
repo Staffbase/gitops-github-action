@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: GitOps (build, push and deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v6.0
+        uses: Staffbase/gitops-github-action@v7.0
         with:
           docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
@@ -69,7 +69,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: GitOps (build and push a new Docker image)
-        uses: Staffbase/gitops-github-action@v6.0
+        uses: Staffbase/gitops-github-action@v7.0
         with:
           docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
@@ -94,7 +94,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: GitOps (deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v6.0
+        uses: Staffbase/gitops-github-action@v7.0
         with:
           docker-image: private/diablo-redbook
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
