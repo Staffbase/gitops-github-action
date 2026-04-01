@@ -189,7 +189,7 @@ runs:
 
     - name: Login to Registry
       if: inputs.docker-username != '' && inputs.docker-password != ''
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ${{ inputs.docker-registry }}
         username: ${{ inputs.docker-username }}
