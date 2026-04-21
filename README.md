@@ -30,14 +30,14 @@ jobs:
   ci-cd:
     name: Build, Push and Deploy
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: GitOps (build, push and deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v7.0
+        uses: Staffbase/gitops-github-action@v7.1
         with:
           docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
@@ -62,14 +62,14 @@ jobs:
   ci-cd:
     name: Build and Push
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: GitOps (build and push a new Docker image)
-        uses: Staffbase/gitops-github-action@v7.0
+        uses: Staffbase/gitops-github-action@v7.1
         with:
           docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
@@ -87,17 +87,63 @@ jobs:
   ci-cd:
     name: Deploy
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: GitOps (deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v7.0
+        uses: Staffbase/gitops-github-action@v7.1
         with:
           docker-image: private/diablo-redbook
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
+          gitops-dev: |-
+            clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+          gitops-stage: |-
+            clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+          gitops-prod: |-
+            clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+```
+
+### Build, Push, Deploy and Track Deployment
+
+When `create-deployment` is set to `true`, the action will:
+1. Create a GitHub Deployment on the source repository for each target environment
+2. Set the deployment status to `in_progress`
+3. Write deployment tracking annotations (`deploy.staffbase.com/repo`, `deploy.staffbase.com/sha`, `deploy.staffbase.com/deployment-id`) to the Application CR in the mops overlay
+
+The environment name is derived from the mops file path (e.g. `kubernetes/namespaces/<service>/prod/de1/...` becomes `prod-de1`).
+
+The calling workflow must grant the `deployments: write` permission:
+
+```yaml
+name: CD
+
+on: [ push ]
+
+permissions:
+  deployments: write
+
+jobs:
+  ci-cd:
+    name: Build, Push and Deploy
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: GitOps (build, push, deploy and track)
+        uses: Staffbase/gitops-github-action@v7.1
+        with:
+          docker-username: ${{ vars.HARBOR_USERNAME }}
+          docker-password: ${{ secrets.HARBOR_PASSWORD }}
+          docker-image: private/diablo-redbook
+          gitops-token: ${{ secrets.GITOPS_TOKEN }}
+          create-deployment: true
+          github-token: ${{ github.token }}
           gitops-dev: |-
             clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
           gitops-stage: |-
@@ -133,13 +179,16 @@ jobs:
 | `gitops-stage`              | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository            |                                                      |
 | `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                                                      |
 | `working-directory`         | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                                                  |
+| `create-deployment`         | Create GitHub Deployments on the source repository and write tracking annotations to the GitOps CRs                           | `false`                                              |
+| `github-token`              | GitHub Token for creating deployments (requires `deployments: write` permission). Required when `create-deployment` is `true`. |                                                      |
 
 ## Outputs
 
 | Name            | Description         |
 |-----------------|---------------------|
-| `docker-digest` | Digest of the image |
-| `docker-tag`    | Tag of the image    |
+| `docker-digest`  | Digest of the image                                                             |
+| `docker-tag`     | Tag of the image                                                                |
+| `deployment-id`  | JSON map of environment to GitHub Deployment ID (set when `create-deployment` is `true`) |
 
 ## Contributing
 
