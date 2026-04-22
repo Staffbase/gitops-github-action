@@ -1,6 +1,6 @@
 name: 'Docker and GitOps Commit'
 description: 'Build and push the Docker image and commits the new version to your GitOps repo.'
-author: 'Staffbase GmbH'
+author: 'Staffbase SE'
 
 inputs:
   docker-registry:
@@ -112,7 +112,7 @@ outputs:
     value: ${{ steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
   deployment-id:
     description: 'JSON map of environment to GitHub Deployment ID (only set when create-deployment is true)'
-    value: ${{ steps.update_image.outputs.deployment_ids }}
+    value: ${{ steps.create_deployments.outputs.deployment_ids || steps.update_image.outputs.deployment_ids }}
 
 runs:
   using: "composite"
@@ -120,78 +120,20 @@ runs:
     - name: Generate Tags
       id: preparation
       shell: bash
-      run: |
-        BUILD="true"
-        if [[ -n "${{ inputs.docker-custom-tag }}" ]]; then
-          TAG="${{ inputs.docker-custom-tag }}"
-          LATEST="latest"
-          PUSH="true"
-          BUILD="${{ inputs.docker-disable-retagging }}"
-        elif [[ $GITHUB_REF == refs/heads/master ]]; then
-          TAG="master-${GITHUB_SHA::8}"
-          LATEST="master"
-          PUSH="true"
-        elif [[ $GITHUB_REF == refs/heads/main ]]; then
-          TAG="main-${GITHUB_SHA::8}"
-          LATEST="main"
-          PUSH="true"
-        elif [[ $GITHUB_REF == refs/heads/dev ]]; then
-          TAG="dev-${GITHUB_SHA::8}"
-          LATEST="dev"
-          PUSH="true"
-        elif [[ $GITHUB_REF == refs/tags/v* ]]; then
-          TAG="${GITHUB_REF:11}"
-          LATEST="latest"
-          PUSH="true"
-          BUILD="${{ inputs.docker-disable-retagging }}"
-        elif [[ $GITHUB_REF == refs/tags/* ]]; then
-          TAG="${GITHUB_REF:10}"
-          LATEST="latest"
-          PUSH="true"
-          BUILD="${{ inputs.docker-disable-retagging }}"
-        else
-          TAG="${GITHUB_SHA::8}"
-          PUSH="false"
-        fi
-
-        TAG_LIST="${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${TAG}"
-        if [[ ! -z "${LATEST}" ]]; then
-          TAG_LIST+=",${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${LATEST}"
-        fi
-
-        echo "build=$BUILD" >> $GITHUB_OUTPUT
-        echo "latest=$LATEST" >> $GITHUB_OUTPUT
-        echo "push=$PUSH" >> $GITHUB_OUTPUT
-        echo "tag=$TAG" >> $GITHUB_OUTPUT
-        echo "tag_list=$TAG_LIST" >> $GITHUB_OUTPUT
+      env:
+        INPUT_DOCKER_CUSTOM_TAG: ${{ inputs.docker-custom-tag }}
+        INPUT_DOCKER_DISABLE_RETAGGING: ${{ inputs.docker-disable-retagging }}
+        INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
+        INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
+      run: ${{ github.action_path }}/scripts/generate-tags.sh
 
     - name: Verify Architecture Match
       shell: bash
       if: steps.preparation.outputs.build == 'true'
-      run: |
-        RUNNER_ARCH="${{ runner.arch }}" # X64 (AMD64) or ARM64
-        TARGET_PLATFORMS="${{ inputs.docker-build-platforms }}"
-        
-        echo "Runner CPU Architecture: $RUNNER_ARCH"
-        echo "Requested Build Platforms: $TARGET_PLATFORMS"
-
-        # Check for AMD64 mismatch (Runner is X64, but user requests ONLY arm64, OR user requests multi-arch which requires emulation)
-        if [[ "$RUNNER_ARCH" == "X64" ]]; then
-          if [[ "$TARGET_PLATFORMS" == *"linux/arm64"* ]]; then
-            echo "::error::Runner is X64 (Intel/AMD) but build includes 'linux/arm64'. This requires emulation. Aborting strictly."
-            exit 1
-          fi
-        fi
-
-        # Check for ARM64 mismatch
-        if [[ "$RUNNER_ARCH" == "ARM64" ]]; then
-          if [[ "$TARGET_PLATFORMS" == *"linux/amd64"* ]]; then
-            echo "::error::Runner is ARM64 (Apple Silicon/Graviton) but build includes 'linux/amd64'. This requires emulation. Aborting strictly."
-            exit 1
-          fi
-        fi
-        
-        echo "Architecture match verified for native build ✅"
+      env:
+        RUNNER_ARCH: ${{ runner.arch }}
+        INPUT_DOCKER_BUILD_PLATFORMS: ${{ inputs.docker-build-platforms }}
+      run: ${{ github.action_path }}/scripts/verify-architecture.sh
 
     - name: Set up Docker Buildx
       if: inputs.docker-username != '' && inputs.docker-password != ''
@@ -204,7 +146,6 @@ runs:
         registry: ${{ inputs.docker-registry }}
         username: ${{ inputs.docker-username }}
         password: ${{ inputs.docker-password }}
-
 
     - name: Build
       id: docker_build
@@ -229,60 +170,14 @@ runs:
       id: docker_retag
       if: steps.preparation.outputs.build == 'false'
       shell: bash
-      run: |
-        CHECK_EXISTING_TAGS="master-${GITHUB_SHA::8} main-${GITHUB_SHA::8}"
-        # Accept both single-arch manifests and multi-arch manifest lists/indexes
-        ACCEPT_HEADER="application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json"
-
-        echo "CHECK_EXISTING_TAGS: ${CHECK_EXISTING_TAGS}"
-        echo "RELEASE_TAG: ${RELEASE_TAG:1}"
-        echo "Check if an image already exists for ${{ inputs.docker-image }}:main|master-${GITHUB_SHA::8} 🐋 ⬇"
-
-        foundImage=false
-        DETECTED_CONTENT_TYPE=""
-        DIGEST=""
-
-        end=$((SECONDS+300))
-        while [ $SECONDS -lt $end ]; do
-
-          MANIFEST=""
-          for tag in $CHECK_EXISTING_TAGS; do
-            # Dump headers to file to extract Content-Type and Digest later
-            MANIFEST=$(curl -s -D headers.txt -H "Accept: ${ACCEPT_HEADER}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${tag}")
-
-            if [[ $MANIFEST == *"errors"* ]]; then
-              echo "No image found for ${{ inputs.docker-image }}:${tag} 🚫"
-              continue
-            else
-              echo "Image found for ${{ inputs.docker-image }}:${tag} 🐋 ⬇"
-              foundImage=true
-        
-              # Extract the Content-Type returned by registry
-              DETECTED_CONTENT_TYPE=$(grep -i "^Content-Type:" headers.txt | cut -d' ' -f2 | tr -d '\r')
-        
-              # Extract the correct digest from headers (works for lists and single images)
-              DIGEST=$(grep -i "^Docker-Content-Digest:" headers.txt | cut -d' ' -f2 | tr -d '\r')
-        
-              break 2
-            fi
-          done
-
-          sleep 10
-        done
-
-        if [[ $foundImage == false ]]; then
-          echo "No image found for ${{ inputs.docker-image }}:main|master-${GITHUB_SHA::8} 🚫 within 300 seconds"
-          exit 1
-        fi
-
-        echo "Retagging image with release version and :latest tags for ${{ inputs.docker-image }} 🏷"
-        echo "Using Content-Type: ${DETECTED_CONTENT_TYPE}"
-        
-        # Use the detected Content-Type to PUT the manifest back
-        curl --fail-with-body -X PUT -H "Content-Type: ${DETECTED_CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.tag }}"
-        curl --fail-with-body -X PUT -H "Content-Type: ${DETECTED_CONTENT_TYPE}" -u '${{ inputs.docker-username }}:${{ inputs.docker-password }}' -d "${MANIFEST}" "${{ inputs.docker-registry-api }}${{ inputs.docker-image}}/manifests/${{ steps.preparation.outputs.latest }}"
-
-        echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+      env:
+        INPUT_DOCKER_USERNAME: ${{ inputs.docker-username }}
+        INPUT_DOCKER_PASSWORD: ${{ inputs.docker-password }}
+        INPUT_DOCKER_REGISTRY_API: ${{ inputs.docker-registry-api }}
+        INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
+        INPUT_TAG: ${{ steps.preparation.outputs.tag }}
+        INPUT_LATEST: ${{ steps.preparation.outputs.latest }}
+      run: ${{ github.action_path }}/scripts/retag-image.sh
 
     - name: Checkout GitOps Repository
       if: inputs.gitops-token != ''
@@ -292,158 +187,100 @@ runs:
         token: ${{ inputs.gitops-token }}
         path: .github/${{ inputs.gitops-repository }}
 
+    - name: Create GitHub Deployments
+      id: create_deployments
+      if: inputs.create-deployment == 'true' && inputs.github-token != '' && inputs.gitops-token != ''
+      uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+      env:
+        INPUT_GITOPS_DEV: ${{ inputs.gitops-dev }}
+        INPUT_GITOPS_STAGE: ${{ inputs.gitops-stage }}
+        INPUT_GITOPS_PROD: ${{ inputs.gitops-prod }}
+        DOCKER_IMAGE: ${{ inputs.docker-registry }}/${{ inputs.docker-image }}
+        DOCKER_TAG: ${{ steps.preparation.outputs.tag }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const ref = process.env.GITHUB_REF;
+          const image = process.env.DOCKER_IMAGE;
+          const tag = process.env.DOCKER_TAG;
+
+          let fileList = '';
+          if ((ref === 'refs/heads/master' || ref === 'refs/heads/main') && process.env.INPUT_GITOPS_STAGE) {
+            fileList = process.env.INPUT_GITOPS_STAGE;
+          } else if (ref === 'refs/heads/dev' && process.env.INPUT_GITOPS_DEV) {
+            fileList = process.env.INPUT_GITOPS_DEV;
+          } else if (ref.startsWith('refs/tags/') && process.env.INPUT_GITOPS_PROD) {
+            fileList = process.env.INPUT_GITOPS_PROD;
+          }
+
+          if (!fileList) {
+            core.setOutput('deployment_ids', '{}');
+            return;
+          }
+
+          // Derive unique environments from file paths
+          // Path format: kubernetes/namespaces/<service>/<env>/<cluster>/<file>.yaml
+          const environments = [...new Set(
+            fileList.split('\n')
+              .map(line => line.trim())
+              .filter(line => line.length > 0)
+              .map(line => {
+                const filePath = line.split(/\s+/)[0];
+                const parts = filePath.split('/');
+                return `${parts[3]}-${parts[4]}`;
+              })
+          )];
+
+          const ids = {};
+          for (const env of environments) {
+            try {
+              const { data: deployment } = await github.rest.repos.createDeployment({
+                ...context.repo,
+                ref: context.sha,
+                environment: env,
+                auto_merge: false,
+                required_contexts: [],
+                payload: { image, tag },
+                description: `Deploy ${image}:${tag} to ${env}`
+              });
+
+              await github.rest.repos.createDeploymentStatus({
+                ...context.repo,
+                deployment_id: deployment.id,
+                state: 'in_progress',
+                description: 'Updating GitOps repository'
+              });
+
+              core.info(`Created deployment ${deployment.id} for environment ${env}`);
+              ids[env] = String(deployment.id);
+            } catch (error) {
+              core.warning(`Failed to create GitHub Deployment for ${env}: ${error.message}`);
+            }
+          }
+
+          core.setOutput('deployment_ids', JSON.stringify(ids));
+
     - name: Update Docker Image in Repository
       id: update_image
       if: inputs.gitops-token != ''
       working-directory: .github/${{ inputs.gitops-repository }}
       shell: bash
-      run: |
-        IMAGE="${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
-        CREATE_DEPLOYMENT="${{ inputs.create-deployment }}"
-        GITHUB_TOKEN_INPUT="${{ inputs.github-token }}"
-        DEPLOYMENT_IDS='{}'
-
-        push_to_gitops_repo () {
-          # In case there was another push in the meantime, we pull it again
-          git pull --rebase https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
-          git push https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
-        }
-
-        commit_changes () {
-          if [[ ${{ steps.preparation.outputs.push }} == "true" ]]; then
-            git add .
-
-            # commit with no errors if there are no changes
-            if git diff-index --quiet HEAD; then
-              echo "There were no changes..."
-              return
-            fi
-
-            git commit -m "Release ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
-
-            # retry push attempt since rejections can still happen (even with pull before push)
-            push_to_gitops_repo || push_to_gitops_repo || push_to_gitops_repo
-          fi
-        }
-
-        derive_environment () {
-          local file_path="$1"
-          # Path: kubernetes/namespaces/<service>/<env>/<cluster>/<file>.yaml
-          local env=$(echo "$file_path" | cut -d'/' -f4)
-          local cluster=$(echo "$file_path" | cut -d'/' -f5)
-          echo "${env}-${cluster}"
-        }
-
-        create_deployment () {
-          local environment="$1"
-          local image="$2"
-          local tag="$3"
-
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${GITHUB_TOKEN_INPUT}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/deployments" \
-            -d "{
-              \"ref\": \"${GITHUB_SHA}\",
-              \"environment\": \"${environment}\",
-              \"auto_merge\": false,
-              \"required_contexts\": [],
-              \"payload\": {
-                \"image\": \"${image}\",
-                \"tag\": \"${tag}\"
-              },
-              \"description\": \"Deploy ${image}:${tag} to ${environment}\"
-            }")
-
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-
-          if [[ "$HTTP_CODE" -lt 200 || "$HTTP_CODE" -ge 300 ]]; then
-            echo "::warning::Failed to create GitHub Deployment for ${environment} (HTTP ${HTTP_CODE}): ${BODY}" >&2
-            return
-          fi
-
-          local deployment_id=$(echo "$BODY" | jq -r '.id')
-          echo "Created deployment ${deployment_id} for environment ${environment}" >&2
-
-          # Set initial status to in_progress
-          curl -s \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${GITHUB_TOKEN_INPUT}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
-            -d "{\"state\": \"in_progress\", \"description\": \"Updating GitOps repository\"}" > /dev/null
-
-          echo "$deployment_id"
-        }
-
-        update_file () {
-          local file="$1"
-          local field="$2"
-          local image="$3"
-
-          echo "Check if path ${file} ${field} exists and get old current version"
-          yq -e ."${field}" "${file}"
-          echo "Run update ${file} ${field} ${image}"
-          yq -i ."${field}"=\""${image}"\" "${file}"
-
-          if [[ "$CREATE_DEPLOYMENT" == "true" ]]; then
-            local deploy_env=$(derive_environment "${file}")
-            local deploy_id=""
-
-            if [[ -n "$GITHUB_TOKEN_INPUT" ]]; then
-              deploy_id=$(create_deployment "${deploy_env}" "${{ inputs.docker-registry }}/${{ inputs.docker-image }}" "${{ steps.preparation.outputs.tag }}")
-            fi
-
-            echo "Writing deployment annotations to ${file}"
-            yq -i '.metadata.annotations["deploy.staffbase.com/repo"] = "'"${GITHUB_REPOSITORY}"'"' "${file}"
-            yq -i '.metadata.annotations["deploy.staffbase.com/sha"] = "'"${GITHUB_SHA}"'"' "${file}"
-            if [[ -n "$deploy_id" ]]; then
-              yq -i '.metadata.annotations["deploy.staffbase.com/deployment-id"] = "'"${deploy_id}"'"' "${file}"
-              DEPLOYMENT_IDS=$(echo "$DEPLOYMENT_IDS" | jq -c --arg env "$deploy_env" --arg id "$deploy_id" '. + {($env): $id}')
-            fi
-          fi
-        }
-
-        # configure git user
-        git config --global user.email "${{ inputs.gitops-email }}" && git config --global user.name "${{ inputs.gitops-user }}"
-
-        if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && -n "${{ inputs.gitops-stage }}" ]]; then
-          echo "Run update for STAGE"
-          while IFS= read -r line; do
-            array=($line)
-            update_file "${array[0]}" "${array[1]}" "$IMAGE"
-          done <<< "${{ inputs.gitops-stage }}"
-          commit_changes
-
-        elif [[ $GITHUB_REF == refs/heads/dev && -n "${{ inputs.gitops-dev }}" ]]; then
-          echo "Run update for DEV"
-          while IFS= read -r line; do
-            array=($line)
-            update_file "${array[0]}" "${array[1]}" "$IMAGE"
-          done <<< "${{ inputs.gitops-dev }}"
-          commit_changes
-
-        elif [[ $GITHUB_REF == refs/tags/* && -n "${{ inputs.gitops-prod }}" ]]; then
-          echo "Run update for PROD"
-          while IFS= read -r line; do
-            array=($line)
-            update_file "${array[0]}" "${array[1]}" "$IMAGE"
-          done <<< "${{ inputs.gitops-prod }}"
-          commit_changes
-
-        elif [[ -n "${{ inputs.gitops-dev }}" ]]; then
-          echo "Simulate update for DEV"
-          while IFS= read -r line; do
-            array=($line)
-            update_file "${array[0]}" "${array[1]}" "$IMAGE"
-          done <<< "${{ inputs.gitops-dev }}"
-        fi
-
-        echo "deployment_ids=$DEPLOYMENT_IDS" >> $GITHUB_OUTPUT
+      env:
+        INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
+        INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
+        INPUT_TAG: ${{ steps.preparation.outputs.tag }}
+        INPUT_PUSH: ${{ steps.preparation.outputs.push }}
+        INPUT_CREATE_DEPLOYMENT: ${{ inputs.create-deployment }}
+        INPUT_DEPLOYMENT_IDS: ${{ steps.create_deployments.outputs.deployment_ids }}
+        INPUT_GITOPS_USER: ${{ inputs.gitops-user }}
+        INPUT_GITOPS_EMAIL: ${{ inputs.gitops-email }}
+        INPUT_GITOPS_TOKEN: ${{ inputs.gitops-token }}
+        INPUT_GITOPS_ORGANIZATION: ${{ inputs.gitops-organization }}
+        INPUT_GITOPS_REPOSITORY: ${{ inputs.gitops-repository }}
+        INPUT_GITOPS_DEV: ${{ inputs.gitops-dev }}
+        INPUT_GITOPS_STAGE: ${{ inputs.gitops-stage }}
+        INPUT_GITOPS_PROD: ${{ inputs.gitops-prod }}
+      run: ${{ github.action_path }}/scripts/update-gitops.sh
 
     - name: Emit Image Build Event to Upwind.io
       env:

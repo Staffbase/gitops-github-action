@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-service
+  namespace: my-service
+  annotations: {}
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          image: registry.staffbase.com/my-service:old-tag
