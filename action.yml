@@ -95,6 +95,13 @@ inputs:
     description: 'The path relative to the repo root dir in which the GitOps action should be executed.'
     required: false
     default: '.'
+  create-deployment:
+    description: 'Create GitHub Deployments on the source repository and write tracking annotations to the GitOps CRs'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'GitHub Token for creating deployments (requires deployments: write permission). Required when create-deployment is true.'
+    required: false
 
 outputs:
   docker-tag:
@@ -103,6 +110,9 @@ outputs:
   docker-digest:
     description: 'Docker digest'
     value: ${{ steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
+  deployment-id:
+    description: 'JSON map of environment to GitHub Deployment ID (only set when create-deployment is true)'
+    value: ${{ steps.update_image.outputs.deployment_ids }}
 
 runs:
   using: "composite"
@@ -283,10 +293,16 @@ runs:
         path: .github/${{ inputs.gitops-repository }}
 
     - name: Update Docker Image in Repository
+      id: update_image
       if: inputs.gitops-token != ''
       working-directory: .github/${{ inputs.gitops-repository }}
       shell: bash
       run: |
+        IMAGE="${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
+        CREATE_DEPLOYMENT="${{ inputs.create-deployment }}"
+        GITHUB_TOKEN_INPUT="${{ inputs.github-token }}"
+        DEPLOYMENT_IDS='{}'
+
         push_to_gitops_repo () {
           # In case there was another push in the meantime, we pull it again
           git pull --rebase https://${{ inputs.gitops-user }}:${{ inputs.gitops-token }}@github.com/${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}.git
@@ -310,6 +326,88 @@ runs:
           fi
         }
 
+        derive_environment () {
+          local file_path="$1"
+          # Path: kubernetes/namespaces/<service>/<env>/<cluster>/<file>.yaml
+          local env=$(echo "$file_path" | cut -d'/' -f4)
+          local cluster=$(echo "$file_path" | cut -d'/' -f5)
+          echo "${env}-${cluster}"
+        }
+
+        create_deployment () {
+          local environment="$1"
+          local image="$2"
+          local tag="$3"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN_INPUT}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/deployments" \
+            -d "{
+              \"ref\": \"${GITHUB_SHA}\",
+              \"environment\": \"${environment}\",
+              \"auto_merge\": false,
+              \"required_contexts\": [],
+              \"payload\": {
+                \"image\": \"${image}\",
+                \"tag\": \"${tag}\"
+              },
+              \"description\": \"Deploy ${image}:${tag} to ${environment}\"
+            }")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [[ "$HTTP_CODE" -lt 200 || "$HTTP_CODE" -ge 300 ]]; then
+            echo "::warning::Failed to create GitHub Deployment for ${environment} (HTTP ${HTTP_CODE}): ${BODY}" >&2
+            return
+          fi
+
+          local deployment_id=$(echo "$BODY" | jq -r '.id')
+          echo "Created deployment ${deployment_id} for environment ${environment}" >&2
+
+          # Set initial status to in_progress
+          curl -s \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN_INPUT}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+            -d "{\"state\": \"in_progress\", \"description\": \"Updating GitOps repository\"}" > /dev/null
+
+          echo "$deployment_id"
+        }
+
+        update_file () {
+          local file="$1"
+          local field="$2"
+          local image="$3"
+
+          echo "Check if path ${file} ${field} exists and get old current version"
+          yq -e ."${field}" "${file}"
+          echo "Run update ${file} ${field} ${image}"
+          yq -i ."${field}"=\""${image}"\" "${file}"
+
+          if [[ "$CREATE_DEPLOYMENT" == "true" ]]; then
+            local deploy_env=$(derive_environment "${file}")
+            local deploy_id=""
+
+            if [[ -n "$GITHUB_TOKEN_INPUT" ]]; then
+              deploy_id=$(create_deployment "${deploy_env}" "${{ inputs.docker-registry }}/${{ inputs.docker-image }}" "${{ steps.preparation.outputs.tag }}")
+            fi
+
+            echo "Writing deployment annotations to ${file}"
+            yq -i '.metadata.annotations["deploy.staffbase.com/repo"] = "'"${GITHUB_REPOSITORY}"'"' "${file}"
+            yq -i '.metadata.annotations["deploy.staffbase.com/sha"] = "'"${GITHUB_SHA}"'"' "${file}"
+            if [[ -n "$deploy_id" ]]; then
+              yq -i '.metadata.annotations["deploy.staffbase.com/deployment-id"] = "'"${deploy_id}"'"' "${file}"
+              DEPLOYMENT_IDS=$(echo "$DEPLOYMENT_IDS" | jq -c --arg env "$deploy_env" --arg id "$deploy_id" '. + {($env): $id}')
+            fi
+          fi
+        }
+
         # configure git user
         git config --global user.email "${{ inputs.gitops-email }}" && git config --global user.name "${{ inputs.gitops-user }}"
 
@@ -317,10 +415,7 @@ runs:
           echo "Run update for STAGE"
           while IFS= read -r line; do
             array=($line)
-            echo "Check if path $line exists and get old current version"
-            yq -e .${array[1]} ${array[0]}
-            echo "Run update $line ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
-            yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
+            update_file "${array[0]}" "${array[1]}" "$IMAGE"
           done <<< "${{ inputs.gitops-stage }}"
           commit_changes
 
@@ -328,10 +423,7 @@ runs:
           echo "Run update for DEV"
           while IFS= read -r line; do
             array=($line)
-            echo "Check if path $line exists and get old current version"
-            yq -e .${array[1]} ${array[0]}
-            echo "Run update $line ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
-            yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
+            update_file "${array[0]}" "${array[1]}" "$IMAGE"
           done <<< "${{ inputs.gitops-dev }}"
           commit_changes
 
@@ -339,10 +431,7 @@ runs:
           echo "Run update for PROD"
           while IFS= read -r line; do
             array=($line)
-            echo "Check if path $line exists and get old current version"
-            yq -e .${array[1]} ${array[0]}
-            echo "Run update $line ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
-            yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
+            update_file "${array[0]}" "${array[1]}" "$IMAGE"
           done <<< "${{ inputs.gitops-prod }}"
           commit_changes
 
@@ -350,12 +439,11 @@ runs:
           echo "Simulate update for DEV"
           while IFS= read -r line; do
             array=($line)
-            echo "Check if path $line exists and get old current version"
-            yq -e .${array[1]} ${array[0]}
-            echo "Run update $line ${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}"
-            yq -i .${array[1]}=\"${{ inputs.docker-registry }}/${{ inputs.docker-image }}:${{ steps.preparation.outputs.tag }}\" ${array[0]}
+            update_file "${array[0]}" "${array[1]}" "$IMAGE"
           done <<< "${{ inputs.gitops-dev }}"
         fi
+
+        echo "deployment_ids=$DEPLOYMENT_IDS" >> $GITHUB_OUTPUT
 
     - name: Emit Image Build Event to Upwind.io
       env:
