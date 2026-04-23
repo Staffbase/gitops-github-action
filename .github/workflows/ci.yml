@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Shellcheck
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+
+      - name: Run shellcheck
+        run: mise run lint
+
+  test:
+    name: Bash Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install mise
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+
+      - name: Run tests
+        run: mise run test
+
+  validate-action:
+    name: Validate Action Structure
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Verify all referenced scripts exist
+        run: |
+          grep -oP 'github\.action_path \}\}/\K[^ "]+' action.yml | while read -r script; do
+            if [[ ! -f "$script" ]]; then
+              echo "::error::Script referenced in action.yml does not exist: $script"
+              exit 1
+            fi
+          done
+
+      - name: Verify scripts are executable
+        run: |
+          find scripts/ -name '*.sh' | while read -r script; do
+            if [[ ! -x "$script" ]]; then
+              echo "::error::Script is not executable: $script"
+              exit 1
+            fi
+          done

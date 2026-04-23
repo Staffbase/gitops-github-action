@@ -1,0 +1,27 @@
+[tools]
+bats = "1.11.0"
+shellcheck = "0.10.0"
+
+[tasks.test]
+description = "Run bats test suite"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ ! -d tests/test_helper/bats-support ]]; then
+  git clone --depth 1 https://github.com/bats-core/bats-support.git tests/test_helper/bats-support
+fi
+if [[ ! -d tests/test_helper/bats-assert ]]; then
+  git clone --depth 1 https://github.com/bats-core/bats-assert.git tests/test_helper/bats-assert
+fi
+
+bats tests/*.bats
+"""
+
+[tasks.lint]
+description = "Run shellcheck on all scripts"
+run = "shellcheck --severity=warning scripts/*.sh scripts/lib/*.sh"
+
+[tasks.check]
+description = "Run all checks (lint + test)"
+depends = ["lint", "test"]

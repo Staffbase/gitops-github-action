@@ -1,2 +1,14 @@
 # Intellij
 .idea/*
+
+# Node
+node_modules/
+package.json
+package-lock.json
+
+# Test helper libraries (installed during CI/local setup)
+tests/test_helper/bats-support/
+tests/test_helper/bats-assert/
+
+# Test artifacts
+headers.txt
