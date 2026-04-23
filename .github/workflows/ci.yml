@@ -10,15 +10,18 @@ permissions:
   contents: read
 
 jobs:
-  shellcheck:
+  lint:
     name: Shellcheck
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Run shellcheck on all scripts
-        run: find scripts/ -name '*.sh' -exec shellcheck --severity=warning {} +
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Run shellcheck
+        run: mise run lint
 
   test:
     name: Bash Tests
@@ -27,14 +30,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Install bats and helpers
-        run: |
-          sudo npm install -g bats
-          git clone --depth 1 https://github.com/bats-core/bats-support.git tests/test_helper/bats-support
-          git clone --depth 1 https://github.com/bats-core/bats-assert.git tests/test_helper/bats-assert
+      - name: Install mise
+        uses: jdx/mise-action@v2
 
       - name: Run tests
-        run: bats tests/*.bats
+        run: mise run test
 
   validate-action:
     name: Validate Action Structure
