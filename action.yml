@@ -95,13 +95,6 @@ inputs:
     description: 'The path relative to the repo root dir in which the GitOps action should be executed.'
     required: false
     default: '.'
-  create-deployment:
-    description: 'Create GitHub Deployments on the source repository and write tracking annotations to the GitOps CRs'
-    required: false
-    default: 'false'
-  github-token:
-    description: 'GitHub Token for creating deployments (requires deployments: write permission). Required when create-deployment is true.'
-    required: false
 
 outputs:
   docker-tag:
@@ -110,9 +103,6 @@ outputs:
   docker-digest:
     description: 'Docker digest'
     value: ${{ steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
-  deployment-id:
-    description: 'JSON map of environment to GitHub Deployment ID (only set when create-deployment is true)'
-    value: ${{ steps.create_deployments.outputs.deployment_ids || steps.update_image.outputs.deployment_ids }}
 
 runs:
   using: "composite"
@@ -187,109 +177,6 @@ runs:
         token: ${{ inputs.gitops-token }}
         path: .github/${{ inputs.gitops-repository }}
 
-    - name: Create GitHub Deployments
-      id: create_deployments
-      if: inputs.create-deployment == 'true' && inputs.github-token != '' && inputs.gitops-token != ''
-      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-      env:
-        INPUT_GITOPS_DEV: ${{ inputs.gitops-dev }}
-        INPUT_GITOPS_STAGE: ${{ inputs.gitops-stage }}
-        INPUT_GITOPS_PROD: ${{ inputs.gitops-prod }}
-        DOCKER_IMAGE: ${{ inputs.docker-registry }}/${{ inputs.docker-image }}
-        DOCKER_TAG: ${{ steps.preparation.outputs.tag }}
-      with:
-        github-token: ${{ inputs.github-token }}
-        script: |
-          const ref = process.env.GITHUB_REF;
-          const image = process.env.DOCKER_IMAGE;
-          const tag = process.env.DOCKER_TAG;
-
-          let fileList = '';
-          if ((ref === 'refs/heads/master' || ref === 'refs/heads/main') && process.env.INPUT_GITOPS_STAGE) {
-            fileList = process.env.INPUT_GITOPS_STAGE;
-          } else if (ref === 'refs/heads/dev' && process.env.INPUT_GITOPS_DEV) {
-            fileList = process.env.INPUT_GITOPS_DEV;
-          } else if (ref.startsWith('refs/tags/') && process.env.INPUT_GITOPS_PROD) {
-            fileList = process.env.INPUT_GITOPS_PROD;
-          }
-
-          if (!fileList) {
-            core.setOutput('deployment_ids', '{}');
-            return;
-          }
-
-          // Derive unique environments from file paths
-          // Path format: kubernetes/namespaces/<service>/<env>/<cluster>/<file>.yaml
-          const environments = [...new Set(
-            fileList.split('\n')
-              .map(line => line.trim())
-              .filter(line => line.length > 0)
-              .map(line => {
-                const filePath = line.split(/\s+/)[0];
-                const parts = filePath.split('/');
-                return `${parts[3]}-${parts[4]}`;
-              })
-          )];
-
-          // Deactivate stale in-progress/queued/pending deployments for an environment
-          async function deactivateStaleDeployments(environment) {
-            const { data: deployments } = await github.rest.repos.listDeployments({
-              ...context.repo,
-              environment,
-              per_page: 30
-            });
-
-            for (const dep of deployments) {
-              const { data: statuses } = await github.rest.repos.listDeploymentStatuses({
-                ...context.repo,
-                deployment_id: dep.id,
-                per_page: 1
-              });
-
-              const latestState = statuses[0]?.state;
-              if (['in_progress', 'queued', 'pending'].includes(latestState)) {
-                core.info(`Marking stale deployment ${dep.id} (${latestState}) as inactive`);
-                await github.rest.repos.createDeploymentStatus({
-                  ...context.repo,
-                  deployment_id: dep.id,
-                  state: 'inactive',
-                  description: 'Superseded by newer deployment'
-                });
-              }
-            }
-          }
-
-          const ids = {};
-          for (const env of environments) {
-            try {
-              await deactivateStaleDeployments(env);
-
-              const { data: deployment } = await github.rest.repos.createDeployment({
-                ...context.repo,
-                ref: context.sha,
-                environment: env,
-                auto_merge: false,
-                required_contexts: [],
-                payload: { image, tag },
-                description: `Deploy ${image}:${tag} to ${env}`
-              });
-
-              await github.rest.repos.createDeploymentStatus({
-                ...context.repo,
-                deployment_id: deployment.id,
-                state: 'in_progress',
-                description: 'Updating GitOps repository'
-              });
-
-              core.info(`Created deployment ${deployment.id} for environment ${env}`);
-              ids[env] = String(deployment.id);
-            } catch (error) {
-              core.warning(`Failed to create GitHub Deployment for ${env}: ${error.message}`);
-            }
-          }
-
-          core.setOutput('deployment_ids', JSON.stringify(ids));
-
     - name: Update Docker Image in Repository
       id: update_image
       if: inputs.gitops-token != ''
@@ -300,8 +187,6 @@ runs:
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG: ${{ steps.preparation.outputs.tag }}
         INPUT_PUSH: ${{ steps.preparation.outputs.push }}
-        INPUT_CREATE_DEPLOYMENT: ${{ inputs.create-deployment }}
-        INPUT_DEPLOYMENT_IDS: ${{ steps.create_deployments.outputs.deployment_ids }}
         INPUT_GITOPS_USER: ${{ inputs.gitops-user }}
         INPUT_GITOPS_EMAIL: ${{ inputs.gitops-email }}
         INPUT_GITOPS_TOKEN: ${{ inputs.gitops-token }}

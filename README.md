@@ -106,51 +106,17 @@ jobs:
             clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
 ```
 
-### Build, Push, Deploy and Track Deployment
+### Deployment tracking annotations
 
-When `create-deployment` is set to `true`, the action will:
-1. Create a GitHub Deployment on the source repository for each target environment
-2. Set the deployment status to `in_progress`
-3. Write deployment tracking annotations (`deploy.staffbase.com/repo`, `deploy.staffbase.com/sha`, `deploy.staffbase.com/deployment-id`) to the Application CR in the mops overlay
+Whenever the action updates a GitOps file, it stamps the following annotations onto the manifest's `metadata.annotations`:
 
-The environment name is derived from the mops file path (e.g. `kubernetes/namespaces/<service>/prod/de1/...` becomes `prod-de1`).
+| Annotation | Value |
+|------------|-------|
+| `deploy.staffbase.com/repositoryFullName` | The source repository in `owner/repo` form (`$GITHUB_REPOSITORY`) |
+| `deploy.staffbase.com/commitSha` | The commit SHA being deployed (`$GITHUB_SHA`) |
+| `deploy.staffbase.com/version` | The deployed image tag — `dev-<short-sha>` on `dev`, `main-<short-sha>` on `main`/`master`, the tag name on tag pushes |
 
-The calling workflow must grant the `deployments: write` permission:
-
-```yaml
-name: CD
-
-on: [ push ]
-
-permissions:
-  deployments: write
-
-jobs:
-  ci-cd:
-    name: Build, Push and Deploy
-
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: GitOps (build, push, deploy and track)
-        uses: Staffbase/gitops-github-action@v7.1
-        with:
-          docker-username: ${{ vars.HARBOR_USERNAME }}
-          docker-password: ${{ secrets.HARBOR_PASSWORD }}
-          docker-image: private/diablo-redbook
-          gitops-token: ${{ secrets.GITOPS_TOKEN }}
-          create-deployment: true
-          github-token: ${{ github.token }}
-          gitops-dev: |-
-            clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          gitops-stage: |-
-            clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          gitops-prod: |-
-            clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-```
+These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names and are read by `flux-deployment-reporter` to report deployments to Swarmia once Flux finishes reconciling.
 
 ## Inputs
 
@@ -179,8 +145,6 @@ jobs:
 | `gitops-stage`              | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository            |                                                      |
 | `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                                                      |
 | `working-directory`         | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                                                  |
-| `create-deployment`         | Create GitHub Deployments on the source repository and write tracking annotations to the GitOps CRs                           | `false`                                              |
-| `github-token`              | GitHub Token for creating deployments (requires `deployments: write` permission). Required when `create-deployment` is `true`. |                                                      |
 
 ## Outputs
 
@@ -188,7 +152,6 @@ jobs:
 |-----------------|---------------------|
 | `docker-digest`  | Digest of the image                                                             |
 | `docker-tag`     | Tag of the image                                                                |
-| `deployment-id`  | JSON map of environment to GitHub Deployment ID (set when `create-deployment` is `true`) |
 
 ## Contributing
 

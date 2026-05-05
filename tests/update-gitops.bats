@@ -12,8 +12,6 @@ setup() {
   export INPUT_DOCKER_IMAGE="my-service"
   export INPUT_TAG="main-abcdef12"
   export INPUT_PUSH="true"
-  export INPUT_CREATE_DEPLOYMENT="false"
-  export INPUT_DEPLOYMENT_IDS="{}"
   export INPUT_GITOPS_USER="Staffbot"
   export INPUT_GITOPS_EMAIL="staffbot@staffbase.com"
   export INPUT_GITOPS_TOKEN="fake-token"

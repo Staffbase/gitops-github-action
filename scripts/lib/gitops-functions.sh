@@ -4,7 +4,6 @@
 #
 # Expected env vars (set by caller):
 #   INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE, INPUT_TAG, INPUT_PUSH,
-#   INPUT_CREATE_DEPLOYMENT, INPUT_DEPLOYMENT_IDS,
 #   INPUT_GITOPS_USER, INPUT_GITOPS_TOKEN,
 #   INPUT_GITOPS_ORGANIZATION, INPUT_GITOPS_REPOSITORY,
 #   GITHUB_REPOSITORY, GITHUB_SHA, IMAGE
@@ -29,16 +28,6 @@ commit_changes() {
   fi
 }
 
-# Derives the environment identifier from a mops file path.
-# Expected path format: kubernetes/namespaces/<service>/<env>/<cluster>/<file>.yaml
-derive_environment() {
-  local file_path="$1"
-  local env cluster
-  env=$(echo "$file_path" | cut -d'/' -f4)
-  cluster=$(echo "$file_path" | cut -d'/' -f5)
-  echo "${env}-${cluster}"
-}
-
 update_file() {
   local file="$1"
   local field="$2"
@@ -49,24 +38,10 @@ update_file() {
   echo "Run update ${file} ${field} ${image}"
   yq -i ."${field}"=\""${image}"\" "${file}"
 
-  if [[ "${INPUT_CREATE_DEPLOYMENT}" == "true" ]]; then
-    local deploy_env
-    deploy_env=$(derive_environment "${file}")
-
-    echo "Writing deployment annotations to ${file}"
-    yq -i '.metadata.annotations["deploy.staffbase.com/repo"] = "'"${GITHUB_REPOSITORY}"'"' "${file}"
-    yq -i '.metadata.annotations["deploy.staffbase.com/sha"] = "'"${GITHUB_SHA}"'"' "${file}"
-
-    # Write deployment-id annotation if available from the create_deployments step
-    local deploy_id=""
-    if [[ -n "${INPUT_DEPLOYMENT_IDS:-}" && "${INPUT_DEPLOYMENT_IDS}" != "{}" ]]; then
-      deploy_id=$(echo "${INPUT_DEPLOYMENT_IDS}" | jq -r --arg env "$deploy_env" '.[$env] // empty')
-    fi
-
-    if [[ -n "$deploy_id" ]]; then
-      yq -i '.metadata.annotations["deploy.staffbase.com/deployment-id"] = "'"${deploy_id}"'"' "${file}"
-    fi
-  fi
+  echo "Writing deployment annotations to ${file}"
+  yq -i '.metadata.annotations["deploy.staffbase.com/repositoryFullName"] = "'"${GITHUB_REPOSITORY}"'"' "${file}"
+  yq -i '.metadata.annotations["deploy.staffbase.com/commitSha"] = "'"${GITHUB_SHA}"'"' "${file}"
+  yq -i '.metadata.annotations["deploy.staffbase.com/version"] = "'"${INPUT_TAG}"'"' "${file}"
 }
 
 process_file_updates() {
