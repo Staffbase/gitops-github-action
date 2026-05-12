@@ -13,8 +13,6 @@ setup() {
   export INPUT_DOCKER_IMAGE="my-service"
   export INPUT_TAG="main-abcdef12"
   export INPUT_PUSH="true"
-  export INPUT_CREATE_DEPLOYMENT="false"
-  export INPUT_DEPLOYMENT_IDS="{}"
   export INPUT_GITOPS_USER="Staffbot"
   export INPUT_GITOPS_TOKEN="fake-token"
   export INPUT_GITOPS_ORGANIZATION="Staffbase"
@@ -44,45 +42,11 @@ esac
 GIT_MOCK
   chmod +x "${TEST_TEMP_DIR}/mocks/git"
 
-  # Create mock jq that passes through
-  cat > "${TEST_TEMP_DIR}/mocks/jq" << 'JQ_MOCK'
-#!/usr/bin/env bash
-# Use real jq if available, otherwise simple passthrough
-if command -v /usr/bin/jq &>/dev/null; then
-  /usr/bin/jq "$@"
-elif command -v /opt/homebrew/bin/jq &>/dev/null; then
-  /opt/homebrew/bin/jq "$@"
-else
-  cat
-fi
-JQ_MOCK
-  chmod +x "${TEST_TEMP_DIR}/mocks/jq"
-
   export PATH="${TEST_TEMP_DIR}/mocks:$PATH"
 }
 
 teardown() {
   teardown_common
-}
-
-# --- derive_environment ---
-
-@test "derive_environment extracts env and cluster from standard mops path" {
-  run derive_environment "kubernetes/namespaces/my-service/prod/de1/deployment.yaml"
-  assert_success
-  assert_output "prod-de1"
-}
-
-@test "derive_environment handles stage environment" {
-  run derive_environment "kubernetes/namespaces/my-service/stage/us1/deployment.yaml"
-  assert_success
-  assert_output "stage-us1"
-}
-
-@test "derive_environment handles dev environment" {
-  run derive_environment "kubernetes/namespaces/my-service/dev/de1/deployment.yaml"
-  assert_success
-  assert_output "dev-de1"
 }
 
 # --- update_file ---
@@ -94,31 +58,29 @@ teardown() {
   grep -q 'yq -i' "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
-@test "update_file writes deployment annotations when create-deployment is true" {
-  export INPUT_CREATE_DEPLOYMENT="true"
-  update_file "kubernetes/namespaces/svc/prod/de1/deployment.yaml" "spec.image" "$IMAGE"
-  grep -q 'deploy.staffbase.com/repo' "${TEST_TEMP_DIR}/yq_calls.log"
-  grep -q 'deploy.staffbase.com/sha' "${TEST_TEMP_DIR}/yq_calls.log"
-}
-
-@test "update_file skips annotations when create-deployment is false" {
-  export INPUT_CREATE_DEPLOYMENT="false"
+@test "update_file always writes deploy.staffbase.com/repositoryFullName annotation" {
   update_file "deployment.yaml" "spec.image" "$IMAGE"
-  ! grep -q 'deploy.staffbase.com' "${TEST_TEMP_DIR}/yq_calls.log" 2>/dev/null || true
+  grep -q 'deploy.staffbase.com/repositoryFullName' "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
-@test "update_file writes deployment-id annotation when deployment ID is available" {
-  export INPUT_CREATE_DEPLOYMENT="true"
-  export INPUT_DEPLOYMENT_IDS='{"prod-de1":"12345"}'
-  update_file "kubernetes/namespaces/svc/prod/de1/deployment.yaml" "spec.image" "$IMAGE"
-  grep -q 'deploy.staffbase.com/deployment-id' "${TEST_TEMP_DIR}/yq_calls.log"
+@test "update_file always writes deploy.staffbase.com/commitSha annotation" {
+  update_file "deployment.yaml" "spec.image" "$IMAGE"
+  grep -q 'deploy.staffbase.com/commitSha' "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
-@test "update_file skips deployment-id annotation when no matching deployment ID" {
-  export INPUT_CREATE_DEPLOYMENT="true"
-  export INPUT_DEPLOYMENT_IDS='{"stage-us1":"99999"}'
-  update_file "kubernetes/namespaces/svc/prod/de1/deployment.yaml" "spec.image" "$IMAGE"
+@test "update_file writes deploy.staffbase.com/version annotation with INPUT_TAG" {
+  update_file "deployment.yaml" "spec.image" "$IMAGE"
+  grep -q "deploy.staffbase.com/version.*${INPUT_TAG}" "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "update_file does not write deploy.staffbase.com/deployment-id annotation" {
+  update_file "deployment.yaml" "spec.image" "$IMAGE"
   ! grep -q 'deployment-id' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "update_file does not write legacy /repo or /sha annotation keys" {
+  update_file "deployment.yaml" "spec.image" "$IMAGE"
+  ! grep -qE 'deploy\.staffbase\.com/(repo|sha)"' "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
 # --- commit_changes ---
