@@ -82,6 +82,12 @@ inputs:
   gitops-prod:
     description: 'Files which should be updated by the GitHub Action for PROD'
     required: false
+  gitops-namespace:
+    description: 'Kubernetes namespace for region auto-discovery. Required when using shorthand path format (filename + yq field without leading kubernetes/).'
+    required: false
+  gitops-updates:
+    description: 'Files to update for all environments. The environment (dev/stage/prod) is derived from the git ref. Replaces gitops-dev/stage/prod when set.'
+    required: false
   upwind-client-id:
     description: 'Upwind Client ID'
     required: false
@@ -192,9 +198,11 @@ runs:
         INPUT_GITOPS_TOKEN: ${{ inputs.gitops-token }}
         INPUT_GITOPS_ORGANIZATION: ${{ inputs.gitops-organization }}
         INPUT_GITOPS_REPOSITORY: ${{ inputs.gitops-repository }}
+        INPUT_GITOPS_UPDATES: ${{ inputs.gitops-updates }}
         INPUT_GITOPS_DEV: ${{ inputs.gitops-dev }}
         INPUT_GITOPS_STAGE: ${{ inputs.gitops-stage }}
         INPUT_GITOPS_PROD: ${{ inputs.gitops-prod }}
+        INPUT_GITOPS_NAMESPACE: ${{ inputs.gitops-namespace }}
       run: ${{ github.action_path }}/scripts/update-gitops.sh
 
     - name: Emit Image Build Event to Upwind.io

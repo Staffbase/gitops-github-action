@@ -7,7 +7,9 @@
 #   INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE, INPUT_TAG, INPUT_PUSH,
 #   INPUT_GITOPS_USER, INPUT_GITOPS_EMAIL,
 #   INPUT_GITOPS_TOKEN, INPUT_GITOPS_ORGANIZATION, INPUT_GITOPS_REPOSITORY
-# Optional env vars: INPUT_GITOPS_DEV, INPUT_GITOPS_STAGE, INPUT_GITOPS_PROD
+# Optional env vars: INPUT_GITOPS_UPDATES (preferred, applies to all envs),
+#   INPUT_GITOPS_DEV, INPUT_GITOPS_STAGE, INPUT_GITOPS_PROD (legacy, per-env overrides),
+#   INPUT_GITOPS_NAMESPACE (required when using shorthand path format)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
@@ -29,22 +31,42 @@ require_env INPUT_GITOPS_REPOSITORY
 # shellcheck disable=SC2034
 IMAGE="${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${INPUT_TAG}"
 
+NAMESPACE="${INPUT_GITOPS_NAMESPACE:-}"
+
 # Configure git user
 git config --global user.email "${INPUT_GITOPS_EMAIL}" && git config --global user.name "${INPUT_GITOPS_USER}"
 
-if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && -n "${INPUT_GITOPS_STAGE:-}" ]]; then
-  log_info "Run update for STAGE"
-  process_file_updates "$INPUT_GITOPS_STAGE" "true"
+# Derive environment and commit flag from git ref
+env=""
+should_commit="true"
+if [[ $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ]]; then
+  env="stage"
+elif [[ $GITHUB_REF == refs/heads/dev ]]; then
+  env="dev"
+elif [[ $GITHUB_REF == refs/tags/* ]]; then
+  env="prod"
+else
+  env="dev"
+  should_commit="false"
+fi
 
-elif [[ $GITHUB_REF == refs/heads/dev && -n "${INPUT_GITOPS_DEV:-}" ]]; then
-  log_info "Run update for DEV"
-  process_file_updates "$INPUT_GITOPS_DEV" "true"
+# Resolve file list: gitops-updates takes precedence over per-env inputs
+file_list=""
+if [[ -n "${INPUT_GITOPS_UPDATES:-}" ]]; then
+  file_list="$INPUT_GITOPS_UPDATES"
+else
+  case "$env" in
+    stage) file_list="${INPUT_GITOPS_STAGE:-}" ;;
+    dev)   file_list="${INPUT_GITOPS_DEV:-}" ;;
+    prod)  file_list="${INPUT_GITOPS_PROD:-}" ;;
+  esac
+fi
 
-elif [[ $GITHUB_REF == refs/tags/* && -n "${INPUT_GITOPS_PROD:-}" ]]; then
-  log_info "Run update for PROD"
-  process_file_updates "$INPUT_GITOPS_PROD" "true"
-
-elif [[ -n "${INPUT_GITOPS_DEV:-}" ]]; then
-  log_info "Simulate update for DEV"
-  process_file_updates "$INPUT_GITOPS_DEV" "false"
+if [[ -n "$file_list" ]]; then
+  if [[ "$should_commit" == "true" ]]; then
+    log_info "Run update for ${env^^}"
+  else
+    log_info "Simulate update for ${env^^}"
+  fi
+  process_file_updates "$(expand_with_regions "$file_list" "$env" "$NAMESPACE")" "$should_commit"
 fi

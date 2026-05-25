@@ -44,6 +44,54 @@ update_file() {
   yq -i '.metadata.annotations["deploy.staffbase.com/version"] = "'"${INPUT_TAG}"'"' "${file}"
 }
 
+expand_with_regions() {
+  local file_list="$1"
+  local env="$2"
+  local namespace="$3"
+  local expanded=""
+
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+
+    # Without a namespace, pass every line through unchanged (legacy / external repos)
+    if [[ -z "$namespace" ]]; then
+      expanded+="${line}"$'\n'
+      continue
+    fi
+
+    # With a namespace set, explicit full paths (starting with kubernetes/) pass through unchanged
+    if [[ "$line" == kubernetes/* ]]; then
+      expanded+="${line}"$'\n'
+      continue
+    fi
+
+    local filename field_token resolved_field
+    read -r filename field_token <<< "$line"
+
+    if [[ -z "$field_token" ]]; then
+      resolved_field="spec.template.spec.containers.${namespace}.image"
+    elif [[ "$field_token" != *.* ]]; then
+      resolved_field="spec.template.spec.containers.${field_token}.image"
+    else
+      resolved_field="$field_token"
+    fi
+
+    local regions_dir="kubernetes/namespaces/${namespace}/${env}"
+    if [[ -d "$regions_dir" ]]; then
+      for region_dir in "${regions_dir}"/*/; do
+        [[ -d "$region_dir" ]] || continue
+        local region="${region_dir%/}"
+        region="${region##*/}"
+        expanded+="${regions_dir}/${region}/${filename} ${resolved_field}"$'\n'
+      done
+    else
+      log_warn "Auto-discovery: directory ${regions_dir} not found, skipping"
+    fi
+  done <<< "$file_list"
+
+  printf '%s' "$expanded"
+}
+
 process_file_updates() {
   local file_list="$1"
   local should_commit="$2"
