@@ -48,8 +48,7 @@ jobs:
           docker-image: sb-images/my-service
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
           gitops-namespace: my-service
-          gitops-updates: |-
-            my-service-cr.yaml
+          gitops-updates: my-service-cr.yaml
 ```
 
 The action looks up `kubernetes/namespaces/<gitops-namespace>/<env>/` in the GitOps repository and expands each line to a full path for every region directory found there. A service deployed only to `prod/core` will only update that directory; a customer-facing service with `prod/de1`, `prod/us1`, `prod/au1` etc. will update all of them automatically. Adding a new region to the GitOps repo requires no changes in service repos.
@@ -62,7 +61,14 @@ The field specifier on each line is optional and resolved as follows:
 | `my-service-cr.yaml authentication` | `spec.template.spec.containers.authentication.image` |
 | `my-service-cr.yaml spec.template.spec.initContainers.migrate.image` | used as-is |
 
-The second form is useful when the container name differs from the namespace (e.g. matrix builds). The third form covers init containers or any other custom yq path.
+The second form is useful when the container name differs from the namespace (e.g. matrix builds). The third form covers init containers or any other custom yq path. Use a multiline block (`|-`) only when specifying more than one entry:
+
+```yaml
+          gitops-namespace: my-service
+          gitops-updates: |-
+            my-service-cr.yaml
+            my-service-cr.yaml spec.template.spec.initContainers.migrate.image
+```
 
 #### Explicit format (legacy / escape hatch)
 
