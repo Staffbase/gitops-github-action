@@ -21,6 +21,10 @@ leave `gitops-dev`, `gitops-stage` and `gitops-prod` undefined, then those steps
 
 ### Build, Push and Deploy Docker Image
 
+#### Recommended format
+
+Use `gitops-namespace` and `gitops-updates`. The environment (dev/stage/prod) is derived from the git ref automatically — no need to repeat the same files three times.
+
 ```yaml
 name: CD
 
@@ -41,14 +45,40 @@ jobs:
         with:
           docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
-          docker-image: private/diablo-redbook
+          docker-image: sb-images/my-service
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
-          gitops-dev: |-
-            clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
-          gitops-stage: |-
-            clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+          gitops-namespace: my-service
+          gitops-updates: my-service-cr.yaml
+```
+
+The action looks up `kubernetes/namespaces/<gitops-namespace>/<env>/` in the GitOps repository and expands each line to a full path for every region directory found there. A service deployed only to `prod/core` will only update that directory; a customer-facing service with `prod/de1`, `prod/us1`, `prod/au1` etc. will update all of them automatically. Adding a new region to the GitOps repo requires no changes in service repos.
+
+The field specifier on each line is optional and resolved as follows:
+
+| Line format | Resolved yq field |
+|---|---|
+| `my-service-cr.yaml` | `spec.template.spec.containers.<namespace>.image` |
+| `my-service-cr.yaml authentication` | `spec.template.spec.containers.authentication.image` |
+| `my-service-cr.yaml spec.template.spec.initContainers.migrate.image` | used as-is |
+
+The second form is useful when the container name differs from the namespace (e.g. matrix builds). The third form covers init containers or any other custom yq path. Use a multiline block (`|-`) only when specifying more than one entry:
+
+```yaml
+          gitops-namespace: my-service
+          gitops-updates: |-
+            my-service-cr.yaml
+            my-service-cr.yaml spec.template.spec.initContainers.migrate.image
+```
+
+#### Explicit format (legacy / escape hatch)
+
+Full paths can still be specified directly. Lines starting with `kubernetes/` are passed through unchanged, so existing configurations continue to work without modification. Explicit and shorthand lines can be mixed within the same input.
+
+```yaml
           gitops-prod: |-
-            clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+            kubernetes/namespaces/my-service/prod/de1/my-service-cr.yaml spec.template.spec.containers.my-service.image
+            kubernetes/namespaces/my-service/prod/us1/my-service-cr.yaml spec.template.spec.containers.my-service.image
+            kubernetes/namespaces/my-service/prod/au1/my-service-cr.yaml spec.template.spec.containers.my-service.image
 ```
 
 ### Build and Push Docker Image
@@ -141,9 +171,11 @@ These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings
 | `gitops-user`               | GitHub User for GitOps                                                                                                         | `Staffbot`                                           |
 | `gitops-email`              | GitHub Email for GitOps                                                                                                        | `staffbot@staffbase.com`                             |
 | `gitops-token`              | GitHub Token for GitOps                                                                                                        |                                                      |
-| `gitops-dev`                | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository              |                                                      |
-| `gitops-stage`              | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository            |                                                      |
-| `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                                                      |
+| `gitops-namespace`          | Kubernetes namespace for region auto-discovery. Required when using `gitops-updates` or shorthand path format (see Usage).     |                                                      |
+| `gitops-updates`            | Files to update for all environments. Environment derived from git ref. Replaces `gitops-dev/stage/prod` when set.             |                                                      |
+| `gitops-dev`                | Files to update for DEV (legacy). Use `gitops-updates` instead.                                                                |                                                      |
+| `gitops-stage`              | Files to update for STAGE (legacy). Use `gitops-updates` instead.                                                              |                                                      |
+| `gitops-prod`               | Files to update for PROD (legacy). Use `gitops-updates` instead.                                                               |                                                      |
 | `working-directory`         | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                                                  |
 
 ## Outputs

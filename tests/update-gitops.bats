@@ -17,6 +17,7 @@ setup() {
   export INPUT_GITOPS_TOKEN="fake-token"
   export INPUT_GITOPS_ORGANIZATION="Staffbase"
   export INPUT_GITOPS_REPOSITORY="mops"
+  export INPUT_GITOPS_UPDATES=""
   export INPUT_GITOPS_DEV=""
   export INPUT_GITOPS_STAGE=""
   export INPUT_GITOPS_PROD=""
@@ -111,6 +112,126 @@ teardown() {
   assert_output --partial "Simulate update for DEV"
   # Should NOT commit
   ! grep -q 'git commit' "${TEST_TEMP_DIR}/git_calls.log" 2>/dev/null || true
+}
+
+# --- gitops-updates (single input for all envs) ---
+
+@test "gitops-updates updates stage on main branch" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_GITOPS_NAMESPACE="my-service"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/stage/de1"
+  cd "${TEST_TEMP_DIR}/mops"
+  export INPUT_GITOPS_UPDATES="my-service-cr.yaml"
+  run "$SCRIPT"
+  assert_success
+  assert_output --partial "Run update for STAGE"
+  grep -q 'kubernetes/namespaces/my-service/stage/de1/my-service-cr.yaml' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "gitops-updates updates dev on dev branch" {
+  export GITHUB_REF="refs/heads/dev"
+  export INPUT_GITOPS_NAMESPACE="my-service"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/dev/de1"
+  cd "${TEST_TEMP_DIR}/mops"
+  export INPUT_GITOPS_UPDATES="my-service-cr.yaml"
+  run "$SCRIPT"
+  assert_success
+  assert_output --partial "Run update for DEV"
+  grep -q 'kubernetes/namespaces/my-service/dev/de1/my-service-cr.yaml' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "gitops-updates updates prod on tag" {
+  export GITHUB_REF="refs/tags/v1.0.0"
+  export INPUT_GITOPS_NAMESPACE="my-service"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/prod/de1"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/prod/us1"
+  cd "${TEST_TEMP_DIR}/mops"
+  export INPUT_GITOPS_UPDATES="my-service-cr.yaml"
+  run "$SCRIPT"
+  assert_success
+  assert_output --partial "Run update for PROD"
+  grep -q 'kubernetes/namespaces/my-service/prod/de1/my-service-cr.yaml' "${TEST_TEMP_DIR}/yq_calls.log"
+  grep -q 'kubernetes/namespaces/my-service/prod/us1/my-service-cr.yaml' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "gitops-updates simulates on feature branch without committing" {
+  export GITHUB_REF="refs/heads/feature/test"
+  export INPUT_GITOPS_NAMESPACE="my-service"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/dev/de1"
+  cd "${TEST_TEMP_DIR}/mops"
+  export INPUT_GITOPS_UPDATES="my-service-cr.yaml"
+  run "$SCRIPT"
+  assert_success
+  assert_output --partial "Simulate update for DEV"
+  ! grep -q 'git commit' "${TEST_TEMP_DIR}/git_calls.log" 2>/dev/null || true
+}
+
+@test "gitops-updates takes precedence over gitops-stage" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_GITOPS_NAMESPACE="my-service"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/stage/de1"
+  cd "${TEST_TEMP_DIR}/mops"
+  export INPUT_GITOPS_UPDATES="my-service-cr.yaml"
+  export INPUT_GITOPS_STAGE="kubernetes/namespaces/other/stage/de1/other-cr.yaml spec.image"
+  run "$SCRIPT"
+  assert_success
+  grep -q 'my-service' "${TEST_TEMP_DIR}/yq_calls.log"
+  ! grep -q 'other-cr' "${TEST_TEMP_DIR}/yq_calls.log" 2>/dev/null || true
+}
+
+# --- Shorthand auto-discovery ---
+
+@test "expands shorthand STAGE paths using discovered regions" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_GITOPS_NAMESPACE="my-service"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/stage/de1"
+  # Run the script from within the mock mops dir so directory checks work
+  cd "${TEST_TEMP_DIR}/mops"
+  export INPUT_GITOPS_STAGE="my-service-cr.yaml"
+  run "$SCRIPT"
+  assert_success
+  assert_output --partial "Run update for STAGE"
+  grep -q 'kubernetes/namespaces/my-service/stage/de1/my-service-cr.yaml' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "expands shorthand PROD paths for all discovered regions" {
+  export GITHUB_REF="refs/tags/v1.0.0"
+  export INPUT_GITOPS_NAMESPACE="my-service"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/prod/de1"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/prod/us1"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/prod/au1"
+  cd "${TEST_TEMP_DIR}/mops"
+  export INPUT_GITOPS_PROD="my-service-cr.yaml"
+  run "$SCRIPT"
+  assert_success
+  assert_output --partial "Run update for PROD"
+  grep -q 'kubernetes/namespaces/my-service/prod/de1/my-service-cr.yaml' "${TEST_TEMP_DIR}/yq_calls.log"
+  grep -q 'kubernetes/namespaces/my-service/prod/us1/my-service-cr.yaml' "${TEST_TEMP_DIR}/yq_calls.log"
+  grep -q 'kubernetes/namespaces/my-service/prod/au1/my-service-cr.yaml' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "shorthand simulation on feature branch does not commit" {
+  export GITHUB_REF="refs/heads/feature/test"
+  export INPUT_GITOPS_NAMESPACE="my-service"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/my-service/dev/de1"
+  cd "${TEST_TEMP_DIR}/mops"
+  export INPUT_GITOPS_DEV="my-service-cr.yaml"
+  run "$SCRIPT"
+  assert_success
+  assert_output --partial "Simulate update for DEV"
+  ! grep -q 'git commit' "${TEST_TEMP_DIR}/git_calls.log" 2>/dev/null || true
+}
+
+@test "core-only service shorthand only updates prod/core" {
+  export GITHUB_REF="refs/tags/v1.0.0"
+  export INPUT_GITOPS_NAMESPACE="internal-tool"
+  mkdir -p "${TEST_TEMP_DIR}/mops/kubernetes/namespaces/internal-tool/prod/core"
+  cd "${TEST_TEMP_DIR}/mops"
+  export INPUT_GITOPS_PROD="internal-tool-cr.yaml"
+  run "$SCRIPT"
+  assert_success
+  grep -q 'kubernetes/namespaces/internal-tool/prod/core/internal-tool-cr.yaml' "${TEST_TEMP_DIR}/yq_calls.log"
+  ! grep -q 'prod/de1' "${TEST_TEMP_DIR}/yq_calls.log" 2>/dev/null || true
 }
 
 # --- No files configured ---

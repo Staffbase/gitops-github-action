@@ -141,3 +141,86 @@ file2.yaml spec.image"
   process_file_updates "file1.yaml spec.image" "false"
   ! grep -q 'git commit' "${TEST_TEMP_DIR}/git_calls.log" 2>/dev/null || true
 }
+
+# --- expand_with_regions ---
+
+@test "expand_with_regions passes all lines through unchanged when namespace is empty" {
+  result="$(expand_with_regions "manifests/app/prod/de1/deploy.yaml spec.image" "prod" "")"
+  [[ "$result" == *"manifests/app/prod/de1/deploy.yaml spec.image"* ]]
+}
+
+@test "expand_with_regions passes through explicit kubernetes/ lines unchanged when namespace is empty" {
+  local input="kubernetes/namespaces/svc/prod/de1/svc-cr.yaml spec.image"
+  result="$(expand_with_regions "$input" "prod" "")"
+  [[ "$result" == *"kubernetes/namespaces/svc/prod/de1/svc-cr.yaml spec.image"* ]]
+}
+
+@test "expand_with_regions expands shorthand to all discovered regions" {
+  mkdir -p "${TEST_TEMP_DIR}/kubernetes/namespaces/svc/prod/de1"
+  mkdir -p "${TEST_TEMP_DIR}/kubernetes/namespaces/svc/prod/us1"
+  mkdir -p "${TEST_TEMP_DIR}/kubernetes/namespaces/svc/prod/au1"
+  cd "${TEST_TEMP_DIR}"
+
+  result="$(expand_with_regions "svc-cr.yaml" "prod" "svc")"
+  [[ "$result" == *"kubernetes/namespaces/svc/prod/de1/svc-cr.yaml spec.template.spec.containers.svc.image"* ]]
+  [[ "$result" == *"kubernetes/namespaces/svc/prod/us1/svc-cr.yaml spec.template.spec.containers.svc.image"* ]]
+  [[ "$result" == *"kubernetes/namespaces/svc/prod/au1/svc-cr.yaml spec.template.spec.containers.svc.image"* ]]
+}
+
+@test "expand_with_regions resolves container name shorthand to full yq path" {
+  mkdir -p "${TEST_TEMP_DIR}/kubernetes/namespaces/backend/prod/de1"
+  cd "${TEST_TEMP_DIR}"
+
+  result="$(expand_with_regions "authentication-cr.yaml authentication" "prod" "backend")"
+  [[ "$result" == *"authentication-cr.yaml spec.template.spec.containers.authentication.image"* ]]
+}
+
+@test "expand_with_regions uses full yq path when field contains a dot" {
+  mkdir -p "${TEST_TEMP_DIR}/kubernetes/namespaces/svc/prod/de1"
+  cd "${TEST_TEMP_DIR}"
+
+  result="$(expand_with_regions "svc-cr.yaml spec.template.spec.initContainers.migrate.image" "prod" "svc")"
+  [[ "$result" == *"svc-cr.yaml spec.template.spec.initContainers.migrate.image"* ]]
+}
+
+@test "expand_with_regions only discovers regions that exist in mops" {
+  mkdir -p "${TEST_TEMP_DIR}/kubernetes/namespaces/internal-tool/prod/core"
+  cd "${TEST_TEMP_DIR}"
+
+  result="$(expand_with_regions "internal-tool-cr.yaml spec.image" "prod" "internal-tool")"
+  [[ "$result" == *"prod/core/internal-tool-cr.yaml spec.image"* ]]
+  [[ "$result" != *"prod/de1"* ]]
+  [[ "$result" != *"prod/us1"* ]]
+}
+
+@test "expand_with_regions handles mixed explicit and shorthand lines" {
+  mkdir -p "${TEST_TEMP_DIR}/kubernetes/namespaces/svc/prod/de1"
+  mkdir -p "${TEST_TEMP_DIR}/kubernetes/namespaces/svc/prod/us1"
+  cd "${TEST_TEMP_DIR}"
+
+  input="kubernetes/namespaces/svc/prod/de1/explicit-cr.yaml spec.image
+svc-cr.yaml spec.image"
+  result="$(expand_with_regions "$input" "prod" "svc")"
+  [[ "$result" == *"kubernetes/namespaces/svc/prod/de1/explicit-cr.yaml spec.image"* ]]
+  [[ "$result" == *"kubernetes/namespaces/svc/prod/de1/svc-cr.yaml spec.image"* ]]
+  [[ "$result" == *"kubernetes/namespaces/svc/prod/us1/svc-cr.yaml spec.image"* ]]
+}
+
+@test "expand_with_regions skips empty lines" {
+  mkdir -p "${TEST_TEMP_DIR}/kubernetes/namespaces/svc/prod/de1"
+  cd "${TEST_TEMP_DIR}"
+
+  input="svc-cr.yaml spec.image
+
+svc-cr.yaml spec.other.image"
+  result="$(expand_with_regions "$input" "prod" "svc")"
+  count=$(echo "$result" | grep -c "de1/svc-cr.yaml" || true)
+  [[ "$count" -eq 2 ]]
+}
+
+@test "expand_with_regions warns when namespace directory does not exist" {
+  cd "${TEST_TEMP_DIR}"
+  result="$(expand_with_regions "svc-cr.yaml spec.image" "prod" "nonexistent" 2>&1)"
+  [[ "$result" == *"Auto-discovery"* ]]
+  [[ "$result" == *"not found"* ]]
+}
