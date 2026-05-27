@@ -41,14 +41,14 @@ jobs:
         with:
           docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
-          docker-image: private/diablo-redbook
+          docker-image: private/my-service
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
           gitops-dev: |-
-            clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+            clusters/customization/dev/mothership/my-service/my-service-helm.yaml spec.template.spec.containers.redbook.image
           gitops-stage: |-
-            clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+            clusters/customization/stage/mothership/my-service/my-service-helm.yaml spec.template.spec.containers.redbook.image
           gitops-prod: |-
-            clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+            clusters/customization/prod/mothership/my-service/my-service-helm.yaml spec.template.spec.containers.redbook.image
 ```
 
 ### Build and Push Docker Image
@@ -73,7 +73,7 @@ jobs:
         with:
           docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
-          docker-image: private/diablo-redbook
+          docker-image: private/my-service
 ```
 
 ### Deploy Docker Image
@@ -96,14 +96,14 @@ jobs:
       - name: GitOps (deploy a new Docker image)
         uses: Staffbase/gitops-github-action@v7.1
         with:
-          docker-image: private/diablo-redbook
+          docker-image: private/my-service
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
           gitops-dev: |-
-            clusters/customization/dev/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+            clusters/customization/dev/mothership/my-service/my-service-helm.yaml spec.template.spec.containers.redbook.image
           gitops-stage: |-
-            clusters/customization/stage/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+            clusters/customization/stage/mothership/my-service/my-service-helm.yaml spec.template.spec.containers.redbook.image
           gitops-prod: |-
-            clusters/customization/prod/mothership/diablo-redbook/diablo-redbook-helm.yaml spec.template.spec.containers.redbook.image
+            clusters/customization/prod/mothership/my-service/my-service-helm.yaml spec.template.spec.containers.redbook.image
 ```
 
 ### Deployment tracking annotations
