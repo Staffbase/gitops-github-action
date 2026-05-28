@@ -36,13 +36,16 @@ update_file() {
   echo "Check if path ${file} ${field} exists and get old current version"
   yq -e ."${field}" "${file}"
   echo "Run update ${file} ${field} ${image}"
-  local field_type
-  field_type=$(yq "(.${field} | type)" "${file}" 2>/dev/null || echo "!!null")
-  if [[ "${field_type}" == "!!map" ]]; then
-    echo "Field ${field} is a mapping — writing tag only to ${field}.tag"
-    yq -i ".${field}.tag=\"${INPUT_TAG}\"" "${file}"
+  if [[ "${field}" == *.tag ]]; then
+    yq -i ".${field}=\"${INPUT_TAG}\"" "${file}"
   else
-    yq -i ."${field}"=\""${image}"\" "${file}"
+    local field_type
+    field_type=$(yq "(.${field} | type)" "${file}" 2>/dev/null || echo "!!null")
+    if [[ "${field_type}" == "!!map" ]] && yq -e ".${field}.tag" "${file}" > /dev/null 2>&1; then
+      yq -i ".${field}.tag=\"${INPUT_TAG}\"" "${file}"
+    else
+      yq -i ."${field}"=\""${image}"\" "${file}"
+    fi
   fi
 
   echo "Writing deployment annotations to ${file}"
