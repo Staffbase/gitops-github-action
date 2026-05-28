@@ -36,7 +36,14 @@ update_file() {
   echo "Check if path ${file} ${field} exists and get old current version"
   yq -e ."${field}" "${file}"
   echo "Run update ${file} ${field} ${image}"
-  yq -i ."${field}"=\""${image}"\" "${file}"
+  local field_type
+  field_type=$(yq "(.${field} | type)" "${file}" 2>/dev/null || echo "!!null")
+  if [[ "${field_type}" == "!!map" ]]; then
+    echo "Field ${field} is a mapping — writing tag only to ${field}.tag"
+    yq -i ".${field}.tag=\"${INPUT_TAG}\"" "${file}"
+  else
+    yq -i ."${field}"=\""${image}"\" "${file}"
+  fi
 
   echo "Writing deployment annotations to ${file}"
   yq -i '.metadata.annotations["deploy.staffbase.com/repositoryFullName"] = "'"${GITHUB_REPOSITORY}"'"' "${file}"

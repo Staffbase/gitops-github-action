@@ -51,6 +51,31 @@ teardown() {
 
 # --- update_file ---
 
+@test "update_file writes tag only when field value is a mapping" {
+  cat > "${TEST_TEMP_DIR}/mocks/yq" << 'YQ_MOCK'
+#!/usr/bin/env bash
+echo "yq $*" >> "${MOCK_CALLS_DIR}/yq_calls.log"
+if [[ "$*" == *"| type"* ]]; then echo "!!map"; fi
+exit 0
+YQ_MOCK
+  chmod +x "${TEST_TEMP_DIR}/mocks/yq"
+  update_file "helmrelease.yaml" "spec.values.workload.container.image" "$IMAGE"
+  grep -q ".spec.values.workload.container.image.tag=\"${INPUT_TAG}\"" "${TEST_TEMP_DIR}/yq_calls.log"
+  ! grep -q "${IMAGE}" "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "update_file writes full URI when field value is a scalar" {
+  cat > "${TEST_TEMP_DIR}/mocks/yq" << 'YQ_MOCK'
+#!/usr/bin/env bash
+echo "yq $*" >> "${MOCK_CALLS_DIR}/yq_calls.log"
+if [[ "$*" == *"| type"* ]]; then echo "!!str"; fi
+exit 0
+YQ_MOCK
+  chmod +x "${TEST_TEMP_DIR}/mocks/yq"
+  update_file "deployment.yaml" "spec.template.spec.containers.app.image" "$IMAGE"
+  grep -q "${IMAGE}" "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
 @test "update_file calls yq to check and update field" {
   update_file "deployment.yaml" "spec.image" "$IMAGE"
   assert [ -f "${TEST_TEMP_DIR}/yq_calls.log" ]
