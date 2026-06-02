@@ -15,6 +15,12 @@ teardown_common() {
   rm -rf "$TEST_TEMP_DIR"
 }
 
+skip_if_no_yq() {
+  if ! command -v yq &> /dev/null; then
+    skip "yq not installed"
+  fi
+}
+
 # Assert that a specific output was written to GITHUB_OUTPUT
 assert_output_value() {
   local name="$1"

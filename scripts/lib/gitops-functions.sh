@@ -41,7 +41,7 @@ update_file() {
   else
     local field_type
     field_type=$(yq "(.${field} | type)" "${file}" 2>/dev/null || echo "!!null")
-    if [[ "${field_type}" == "!!map" ]] && yq -e ".${field}.tag" "${file}" > /dev/null 2>&1; then
+    if [[ "${field_type}" == "!!map" ]]; then
       yq -i ".${field}.tag=\"${INPUT_TAG}\"" "${file}"
     else
       yq -i ."${field}"=\""${image}"\" "${file}"
