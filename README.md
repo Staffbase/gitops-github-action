@@ -114,7 +114,7 @@ Whenever the action updates a GitOps file, it stamps the following annotations o
 |------------|-------|
 | `deploy.staffbase.com/repositoryFullName` | The source repository in `owner/repo` form (`$GITHUB_REPOSITORY`) |
 | `deploy.staffbase.com/commitSha` | The commit SHA being deployed (`$GITHUB_SHA`) |
-| `deploy.staffbase.com/version` | The deployed image tag — `dev-<short-sha>` on `dev`, `main-<short-sha>` on `main`/`master`, the tag name on tag pushes |
+| `deploy.staffbase.com/version` | The deployed image tag — `dev-<short-sha>` on `dev`, `main-<short-sha>` on `main`, `master-<short-sha>` on `master` (with `docker-tag-timestamp` a UTC timestamp is inserted before the SHA), the tag name on tag pushes |
 
 These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names and are read by `flux-deployment-reporter` to report deployments to Swarmia once Flux finishes reconciling.
 
@@ -126,6 +126,7 @@ These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings
 | `docker-registry-api`       | Docker Registry API (used for retagging without pulling)                                                                       | `https://registry.staffbase.com/v2/` |
 | `docker-image`              | Docker Image                                                                                                                   |                                                      |
 | `docker-custom-tag`         | Docker Custom Tag to be set on the image                                                                                       |                                                      |
+| `docker-tag-timestamp`      | Insert a UTC timestamp into `dev`/`main`/`master` branch tags (`dev-<timestamp>-<short-sha>`) to make them sortable for Flux image automation | `false`                              |
 | `docker-username`           | Username for the Docker Registry                                                                                               |                                                      |
 | `docker-password`           | Password for the Docker Registry                                                                                               |                                                      |
 | `docker-file`               | Dockerfile                                                                                                                     | `./Dockerfile`                                       |
@@ -152,6 +153,49 @@ These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings
 |-----------------|---------------------|
 | `docker-digest`  | Digest of the image                                                             |
 | `docker-tag`     | Tag of the image                                                                |
+
+## Image tags & Flux image automation
+
+The generated image tag depends on the Git ref:
+
+| Ref | Tag (default) | Tag (`docker-tag-timestamp: 'true'`) | Floating tag |
+|-----|---------------|--------------------------------------|--------------|
+| `dev` branch | `dev-<short-sha>` | `dev-<utc-timestamp>-<short-sha>` | `dev` |
+| `main` branch | `main-<short-sha>` | `main-<utc-timestamp>-<short-sha>` | `main` |
+| `master` branch | `master-<short-sha>` | `master-<utc-timestamp>-<short-sha>` | `master` |
+| `v*` tag (prod) | the version, e.g. `2025.50.14` (CalVer) | _(unchanged)_ | `latest` |
+| other branch | `<short-sha>` (not pushed) | _(unchanged)_ | — |
+
+By default branch tags keep the legacy `<prefix>-<short-sha>` shape. Set
+`docker-tag-timestamp: 'true'` to insert a `YYYYMMDDHHMMSS` (UTC) timestamp before
+the SHA. This makes branch tags **sortable** so
+[Flux image automation](https://fluxcd.io/flux/components/image/) can pick the
+newest build — the Git SHA alone is not orderable. The short SHA is kept for
+traceability and Flux sorts on the timestamp only.
+
+With the timestamp enabled, use one `ImagePolicy` per environment, filtering by prefix:
+
+```yaml
+# dev (and likewise main-/master- for stage)
+spec:
+  imageRepositoryRef: { name: my-service }
+  filterTags:
+    pattern: '^dev-(?P<ts>[0-9]+)-[0-9a-f]+$'
+    extract: '$ts'
+  policy:
+    numerical: { order: asc }
+---
+# prod — CalVer tags parse as SemVer (no zero-padding!)
+spec:
+  imageRepositoryRef: { name: my-service }
+  policy:
+    semver: { range: '>=0.0.0' }
+```
+
+> **Note:** the prod `semver` policy only works if CalVer parts are never
+> zero-padded (`2025.5.3`, not `2025.05.03`) — SemVer forbids leading zeros.
+> Track the immutable `*-<timestamp>-<sha>` tags, not the floating `dev`/`main`
+> tags, so deployments keep their provenance.
 
 ## Contributing
 

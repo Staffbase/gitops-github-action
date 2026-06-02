@@ -17,6 +17,10 @@ inputs:
   docker-custom-tag:
     description: 'Docker Custom Tag'
     required: false
+  docker-tag-timestamp:
+    description: 'Insert a UTC timestamp into dev/main/master branch tags (e.g. dev-20260602143055-<short-sha>) to make them sortable for Flux image automation. Opt-in; defaults to the legacy <prefix>-<short-sha> format.'
+    required: false
+    default: 'false'
   docker-username:
     description: 'Username for the Docker Registry'
     required: false
@@ -112,6 +116,7 @@ runs:
       shell: bash
       env:
         INPUT_DOCKER_CUSTOM_TAG: ${{ inputs.docker-custom-tag }}
+        INPUT_DOCKER_TAG_TIMESTAMP: ${{ inputs.docker-tag-timestamp }}
         INPUT_DOCKER_DISABLE_RETAGGING: ${{ inputs.docker-disable-retagging }}
         INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}

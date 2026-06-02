@@ -17,21 +17,41 @@ require_env INPUT_DOCKER_IMAGE
 
 BUILD="true"
 
+# branch_tag builds the immutable tag for an environment branch.
+#
+# When INPUT_DOCKER_TAG_TIMESTAMP is "true" the tag gets a UTC timestamp inserted
+# before the short SHA (e.g. dev-20260602143055-abcdef12). This makes branch tags
+# sortable by Flux image automation (numerical policy) — the git SHA alone is not
+# orderable, so Flux cannot otherwise tell which build is newest. The SHA is kept
+# for traceability. When the flag is unset/false the legacy <prefix>-<sha> shape
+# is produced, so existing consumers are unaffected.
+#
+# The timestamp is overridable via BUILD_TIMESTAMP for deterministic tests.
+branch_tag() {
+  local prefix="$1"
+  if [[ "${INPUT_DOCKER_TAG_TIMESTAMP:-false}" == "true" ]]; then
+    local ts="${BUILD_TIMESTAMP:-$(date -u +%Y%m%d%H%M%S)}"
+    echo "${prefix}-${ts}-${GITHUB_SHA::8}"
+  else
+    echo "${prefix}-${GITHUB_SHA::8}"
+  fi
+}
+
 if [[ -n "${INPUT_DOCKER_CUSTOM_TAG:-}" ]]; then
   TAG="${INPUT_DOCKER_CUSTOM_TAG}"
   LATEST="latest"
   PUSH="true"
   BUILD="${INPUT_DOCKER_DISABLE_RETAGGING:-false}"
 elif [[ $GITHUB_REF == refs/heads/master ]]; then
-  TAG="master-${GITHUB_SHA::8}"
+  TAG="$(branch_tag master)"
   LATEST="master"
   PUSH="true"
 elif [[ $GITHUB_REF == refs/heads/main ]]; then
-  TAG="main-${GITHUB_SHA::8}"
+  TAG="$(branch_tag main)"
   LATEST="main"
   PUSH="true"
 elif [[ $GITHUB_REF == refs/heads/dev ]]; then
-  TAG="dev-${GITHUB_SHA::8}"
+  TAG="$(branch_tag dev)"
   LATEST="dev"
   PUSH="true"
 elif [[ $GITHUB_REF == refs/tags/v* ]]; then
