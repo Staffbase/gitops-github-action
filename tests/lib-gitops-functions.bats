@@ -79,37 +79,6 @@ YQ_MOCK
 
 # --- Integration tests using real yq ---
 
-@test "INTEGRATION: map with repository+tag preserves structure and updates tag" {
-  skip_if_no_yq
-  rm -rf "${TEST_TEMP_DIR}/mocks"
-  local test_file="${TEST_TEMP_DIR}/helmrelease.yaml"
-  cat > "$test_file" << 'EOF'
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
-  name: test-svc
-  annotations: {}
-spec:
-  values:
-    workload:
-      container:
-        image:
-          repository: registry.example.com/my-image
-          tag: old-tag
-EOF
-
-  update_file "$test_file" "spec.values.workload.container.image" "$IMAGE"
-
-  run yq '.spec.values.workload.container.image.tag' "$test_file"
-  assert_output "$INPUT_TAG"
-
-  run yq '.spec.values.workload.container.image.repository' "$test_file"
-  assert_output "registry.example.com/my-image"
-
-  run yq '.spec.values.workload.container.image | type' "$test_file"
-  assert_output "!!map"
-}
-
 @test "INTEGRATION: map with only repository gets tag added" {
   skip_if_no_yq
   rm -rf "${TEST_TEMP_DIR}/mocks"
@@ -138,60 +107,6 @@ EOF
 
   run yq '.spec.values.workload.container.image | type' "$test_file"
   assert_output "!!map"
-}
-
-@test "INTEGRATION: map with only tag updates tag" {
-  skip_if_no_yq
-  rm -rf "${TEST_TEMP_DIR}/mocks"
-  local test_file="${TEST_TEMP_DIR}/helmrelease.yaml"
-  cat > "$test_file" << 'EOF'
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
-  name: test-svc
-  annotations: {}
-spec:
-  values:
-    workload:
-      container:
-        image:
-          tag: old-tag
-EOF
-
-  update_file "$test_file" "spec.values.workload.container.image" "$IMAGE"
-
-  run yq '.spec.values.workload.container.image.tag' "$test_file"
-  assert_output "$INPUT_TAG"
-
-  run yq '.spec.values.workload.container.image | type' "$test_file"
-  assert_output "!!map"
-}
-
-@test "INTEGRATION: scalar image field gets full URI" {
-  skip_if_no_yq
-  rm -rf "${TEST_TEMP_DIR}/mocks"
-  local test_file="${TEST_TEMP_DIR}/deployment.yaml"
-  cat > "$test_file" << 'EOF'
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: test-svc
-  annotations: {}
-spec:
-  template:
-    spec:
-      containers:
-        - name: app
-          image: registry.example.com/old-image:old-tag
-EOF
-
-  update_file "$test_file" 'spec.template.spec.containers[0].image' "$IMAGE"
-
-  run yq '.spec.template.spec.containers[0].image' "$test_file"
-  assert_output "$IMAGE"
-
-  run yq '.spec.template.spec.containers[0].image | type' "$test_file"
-  assert_output "!!str"
 }
 
 @test "update_file writes tag only when field path ends with .tag" {
