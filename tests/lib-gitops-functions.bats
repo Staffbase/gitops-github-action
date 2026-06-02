@@ -80,8 +80,8 @@ YQ_MOCK
 # --- Integration tests using real yq ---
 
 @test "INTEGRATION: map with only repository gets tag added" {
-  skip_if_no_yq
   rm -rf "${TEST_TEMP_DIR}/mocks"
+  skip_if_no_yq
   local test_file="${TEST_TEMP_DIR}/helmrelease.yaml"
   cat > "$test_file" << 'EOF'
 apiVersion: helm.toolkit.fluxcd.io/v2
