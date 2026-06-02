@@ -114,7 +114,7 @@ Whenever the action updates a GitOps file, it stamps the following annotations o
 |------------|-------|
 | `deploy.staffbase.com/repositoryFullName` | The source repository in `owner/repo` form (`$GITHUB_REPOSITORY`) |
 | `deploy.staffbase.com/commitSha` | The commit SHA being deployed (`$GITHUB_SHA`) |
-| `deploy.staffbase.com/version` | The deployed image tag — `dev-<short-sha>` on `dev`, `main-<short-sha>` on `main`, `master-<short-sha>` on `master` (with `docker-tag-timestamp` a UTC timestamp is inserted before the SHA), the tag name on tag pushes |
+| `deploy.staffbase.com/version` | The deployed image tag — `dev-<short-sha>` on `dev`, `main-<short-sha>` on `main`, `master-<short-sha>` on `master` (with `docker-tag-timestamp` a UTC timestamp is inserted before the SHA), the version without the leading `v` on `v*` tag pushes, and the tag name on other tag pushes |
 
 These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names and are read by `flux-deployment-reporter` to report deployments to Swarmia once Flux finishes reconciling.
 
