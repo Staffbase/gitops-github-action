@@ -64,7 +64,7 @@ YQ_MOCK
   ! grep -q ".tag=\"${INPUT_TAG}\"" "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
-@test "update_file writes tag to .tag subfield when field is a map with tag property" {
+@test "update_file writes tag to .tag subfield when field is a map" {
   cat > "${TEST_TEMP_DIR}/mocks/yq" << 'YQ_MOCK'
 #!/usr/bin/env bash
 echo "yq $*" >> "${MOCK_CALLS_DIR}/yq_calls.log"
@@ -75,6 +75,38 @@ YQ_MOCK
   update_file "helmrelease.yaml" "spec.values.workload.container.image" "$IMAGE"
   grep -q ".spec.values.workload.container.image.tag=\"${INPUT_TAG}\"" "${TEST_TEMP_DIR}/yq_calls.log"
   ! grep -q "${IMAGE}" "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+# --- Integration tests using real yq ---
+
+@test "INTEGRATION: map with only repository gets tag added" {
+  rm -rf "${TEST_TEMP_DIR}/mocks"
+  skip_if_no_yq
+  local test_file="${TEST_TEMP_DIR}/helmrelease.yaml"
+  cat > "$test_file" << 'EOF'
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: test-svc
+  annotations: {}
+spec:
+  values:
+    workload:
+      container:
+        image:
+          repository: registry.example.com/my-image
+EOF
+
+  update_file "$test_file" "spec.values.workload.container.image" "$IMAGE"
+
+  run yq '.spec.values.workload.container.image.tag' "$test_file"
+  assert_output "$INPUT_TAG"
+
+  run yq '.spec.values.workload.container.image.repository' "$test_file"
+  assert_output "registry.example.com/my-image"
+
+  run yq '.spec.values.workload.container.image | type' "$test_file"
+  assert_output "!!map"
 }
 
 @test "update_file writes tag only when field path ends with .tag" {
