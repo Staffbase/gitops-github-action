@@ -11,6 +11,11 @@ setup() {
   export INPUT_DOCKER_IMAGE="my-service"
   export INPUT_DOCKER_CUSTOM_TAG=""
   export INPUT_DOCKER_DISABLE_RETAGGING="false"
+  # Timestamp suffix is opt-in; default off so the legacy <prefix>-<sha> format
+  # is the baseline. Tests that exercise the suffix set the flag explicitly.
+  unset INPUT_DOCKER_TAG_TIMESTAMP
+  # Pin the timestamp so the opt-in branch tags are deterministic in tests.
+  export BUILD_TIMESTAMP="20260602143055"
 }
 
 teardown() {
@@ -53,6 +58,59 @@ teardown() {
   assert_output_value "build" "true"
 }
 
+# --- timestamp suffix (opt-in, Flux-sortable) ---
+
+@test "dev branch with timestamp flag inserts timestamp before sha" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="true"
+  export GITHUB_REF="refs/heads/dev"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "dev-20260602143055-abcdef12"
+  assert_output_value "latest" "dev"
+}
+
+@test "main branch with timestamp flag inserts timestamp before sha" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="true"
+  export GITHUB_REF="refs/heads/main"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "main-20260602143055-abcdef12"
+}
+
+@test "master branch with timestamp flag inserts timestamp before sha" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="true"
+  export GITHUB_REF="refs/heads/master"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "master-20260602143055-abcdef12"
+}
+
+@test "timestamp flag defaults to a 14-digit UTC timestamp when not injected" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="true"
+  unset BUILD_TIMESTAMP
+  export GITHUB_REF="refs/heads/dev"
+  run "$SCRIPT"
+  assert_success
+  local tag
+  tag=$(get_output_value "tag")
+  [[ "$tag" =~ ^dev-[0-9]{14}-abcdef12$ ]]
+}
+
+@test "timestamp flag does not affect version (prod) tags" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="true"
+  export GITHUB_REF="refs/tags/v2025.50.14"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "2025.50.14"
+}
+
+@test "timestamp flag explicitly 'false' produces legacy shape" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="false"
+  export GITHUB_REF="refs/heads/dev"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "dev-abcdef12"
+}
 # --- version tag ---
 
 @test "version tag v1.2.3 generates correct tag" {
