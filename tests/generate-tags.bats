@@ -104,6 +104,13 @@ teardown() {
   assert_output_value "tag" "2025.50.14"
 }
 
+@test "timestamp flag explicitly 'false' produces legacy shape" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="false"
+  export GITHUB_REF="refs/heads/dev"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "dev-abcdef12"
+}
 # --- version tag ---
 
 @test "version tag v1.2.3 generates correct tag" {
