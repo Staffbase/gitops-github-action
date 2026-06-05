@@ -173,6 +173,12 @@ the SHA. This makes branch tags **sortable** so
 newest build — the Git SHA alone is not orderable. The short SHA is kept for
 traceability and Flux sorts on the timestamp only.
 
+> **Note:** with `docker-tag-timestamp: 'true'` the build also pushes the plain
+> `<prefix>-<short-sha>` tag alongside the timestamped one. That stable per-commit
+> tag is what the release step retags into the version tag, so it must keep
+> existing. It does not match the `^<prefix>-[0-9]+-[0-9a-f]+$` filter below, so
+> Flux ignores it.
+
 With the timestamp enabled, use one `ImagePolicy` per environment, filtering by prefix:
 
 ```yaml

@@ -69,6 +69,27 @@ teardown() {
   assert_output_value "latest" "dev"
 }
 
+@test "timestamp flag pushes a stable <prefix>-<sha> alias in tag_list" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="true"
+  export GITHUB_REF="refs/heads/main"
+  run "$SCRIPT"
+  assert_success
+  # canonical timestamped tag + stable sha alias (for release retag) + floating tag
+  local tag_list
+  tag_list=$(get_output_value "tag_list")
+  [[ "$tag_list" == "registry.staffbase.com/my-service:main-20260602143055-abcdef12,registry.staffbase.com/my-service:main-abcdef12,registry.staffbase.com/my-service:main" ]]
+}
+
+@test "no <prefix>-<sha> alias is added when timestamp flag is off" {
+  export GITHUB_REF="refs/heads/main"
+  run "$SCRIPT"
+  assert_success
+  local tag_list
+  tag_list=$(get_output_value "tag_list")
+  [[ "$tag_list" != *"my-service:main-abcdef12,"*"my-service:main-abcdef12"* ]]
+  [[ "$tag_list" == "registry.staffbase.com/my-service:main-abcdef12,registry.staffbase.com/my-service:main" ]]
+}
+
 @test "main branch with timestamp flag inserts timestamp before sha" {
   export INPUT_DOCKER_TAG_TIMESTAMP="true"
   export GITHUB_REF="refs/heads/main"
