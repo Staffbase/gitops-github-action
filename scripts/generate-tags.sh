@@ -24,7 +24,7 @@ ALIAS_TAG=""
 #
 # When INPUT_DOCKER_TAG_TIMESTAMP is "true" the canonical TAG gets a UTC timestamp
 # inserted before the short SHA (e.g. dev-20260602143055-abcdef12). This makes
-# branch tags sortable by Flux image automation (numerical policy) — the git SHA
+# branch tags sortable by Flux image automation (numerical policy) — the Git SHA
 # alone is not orderable, so Flux cannot otherwise tell which build is newest.
 # In that case ALIAS_TAG holds the legacy <prefix>-<short-sha> tag, which is also
 # pushed: it is the stable per-commit handle that retag-image.sh looks up to find
