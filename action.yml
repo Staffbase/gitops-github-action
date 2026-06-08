@@ -21,6 +21,10 @@ inputs:
     description: 'Insert a UTC timestamp into dev/main/master branch tags (e.g. dev-20260602143055-<short-sha>) to make them sortable for Flux image automation. Opt-in; defaults to the legacy <prefix>-<short-sha> format.'
     required: false
     default: 'false'
+  docker-tag-keep-v-prefix:
+    description: 'Keep the leading "v" on release (v*) tags (v1.2.3 -> v1.2.3). Opt-in; defaults to stripping it (v1.2.3 -> 1.2.3).'
+    required: false
+    default: 'false'
   docker-username:
     description: 'Username for the Docker Registry'
     required: false
@@ -117,6 +121,7 @@ runs:
       env:
         INPUT_DOCKER_CUSTOM_TAG: ${{ inputs.docker-custom-tag }}
         INPUT_DOCKER_TAG_TIMESTAMP: ${{ inputs.docker-tag-timestamp }}
+        INPUT_DOCKER_TAG_KEEP_V_PREFIX: ${{ inputs.docker-tag-keep-v-prefix }}
         INPUT_DOCKER_DISABLE_RETAGGING: ${{ inputs.docker-disable-retagging }}
         INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
