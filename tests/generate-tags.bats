@@ -14,6 +14,8 @@ setup() {
   # Timestamp suffix is opt-in; default off so the legacy <prefix>-<sha> format
   # is the baseline. Tests that exercise the suffix set the flag explicitly.
   unset INPUT_DOCKER_TAG_TIMESTAMP
+  # Keeping the "v" prefix on release tags is opt-in; default off.
+  unset INPUT_DOCKER_TAG_KEEP_V_PREFIX
   # Pin the timestamp so the opt-in branch tags are deterministic in tests.
   export BUILD_TIMESTAMP="20260602143055"
 }
@@ -141,6 +143,31 @@ teardown() {
   assert_output_value "tag" "1.2.3"
   assert_output_value "latest" "latest"
   assert_output_value "push" "true"
+}
+
+@test "version tag strips the v prefix by default" {
+  export GITHUB_REF="refs/tags/v1.2.3"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "1.2.3"
+}
+
+@test "version tag keeps the v prefix when flag is enabled" {
+  export INPUT_DOCKER_TAG_KEEP_V_PREFIX="true"
+  export GITHUB_REF="refs/tags/v1.2.3"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "v1.2.3"
+  assert_output_value "latest" "latest"
+  assert_output_value "push" "true"
+}
+
+@test "keep-v-prefix flag does not affect non-v tags" {
+  export INPUT_DOCKER_TAG_KEEP_V_PREFIX="true"
+  export GITHUB_REF="refs/tags/release-1"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "release-1"
 }
 
 @test "version tag uses docker-disable-retagging for build flag" {

@@ -127,6 +127,7 @@ These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings
 | `docker-image`              | Docker Image                                                                                                                   |                                                      |
 | `docker-custom-tag`         | Docker Custom Tag to be set on the image                                                                                       |                                                      |
 | `docker-tag-timestamp`      | Insert a UTC timestamp into `dev`/`main`/`master` branch tags (`dev-<timestamp>-<short-sha>`) to make them sortable for Flux image automation | `false`                              |
+| `docker-tag-keep-v-prefix`  | Keep the leading `v` on release (`v*`) tags (`v1.2.3` → `v1.2.3`). Default strips it (`v1.2.3` → `1.2.3`) | `false`                                           |
 | `docker-username`           | Username for the Docker Registry                                                                                               |                                                      |
 | `docker-password`           | Password for the Docker Registry                                                                                               |                                                      |
 | `docker-file`               | Dockerfile                                                                                                                     | `./Dockerfile`                                       |
@@ -163,7 +164,7 @@ The generated image tag depends on the Git ref:
 | `dev` branch | `dev-<short-sha>` | `dev-<utc-timestamp>-<short-sha>` | `dev` |
 | `main` branch | `main-<short-sha>` | `main-<utc-timestamp>-<short-sha>` | `main` |
 | `master` branch | `master-<short-sha>` | `master-<utc-timestamp>-<short-sha>` | `master` |
-| `v*` tag (prod) | the version, e.g. `2025.50.14` (CalVer) | _(unchanged)_ | `latest` |
+| `v*` tag (prod) | the version with the `v` stripped, e.g. `v2025.50.14` → `2025.50.14` (or kept with `docker-tag-keep-v-prefix: 'true'`) | _(unchanged)_ | `latest` |
 | other branch | `<short-sha>` (not pushed) | _(unchanged)_ | — |
 
 By default branch tags keep the legacy `<prefix>-<short-sha>` shape. Set

@@ -2,7 +2,8 @@
 # Generates Docker image tags based on the current Git ref.
 #
 # Required env vars: GITHUB_REF, GITHUB_SHA, INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE
-# Optional env vars: INPUT_DOCKER_CUSTOM_TAG, INPUT_DOCKER_DISABLE_RETAGGING
+# Optional env vars: INPUT_DOCKER_CUSTOM_TAG, INPUT_DOCKER_DISABLE_RETAGGING,
+#                    INPUT_DOCKER_TAG_TIMESTAMP, INPUT_DOCKER_TAG_KEEP_V_PREFIX
 #
 # Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list
 
@@ -65,7 +66,13 @@ elif [[ $GITHUB_REF == refs/heads/dev ]]; then
   LATEST="dev"
   PUSH="true"
 elif [[ $GITHUB_REF == refs/tags/v* ]]; then
-  TAG="${GITHUB_REF:11}"
+  # By default the leading "v" is stripped (v1.2.3 -> 1.2.3). Set
+  # INPUT_DOCKER_TAG_KEEP_V_PREFIX=true to keep it (v1.2.3 -> v1.2.3).
+  if [[ "${INPUT_DOCKER_TAG_KEEP_V_PREFIX:-false}" == "true" ]]; then
+    TAG="${GITHUB_REF#refs/tags/}"
+  else
+    TAG="${GITHUB_REF:11}"
+  fi
   LATEST="latest"
   PUSH="true"
   BUILD="${INPUT_DOCKER_DISABLE_RETAGGING:-false}"
