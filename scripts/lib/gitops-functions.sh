@@ -6,11 +6,13 @@
 #   INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE, INPUT_TAG, INPUT_PUSH,
 #   INPUT_GITOPS_USER, INPUT_GITOPS_TOKEN,
 #   INPUT_GITOPS_ORGANIZATION, INPUT_GITOPS_REPOSITORY,
+#   GITOPS_BRANCH (target branch on the GitOps repo, e.g. main / dev),
 #   GITHUB_REPOSITORY, GITHUB_SHA, IMAGE
 
 push_to_gitops_repo() {
-  git pull --rebase "https://${INPUT_GITOPS_USER}:${INPUT_GITOPS_TOKEN}@github.com/${INPUT_GITOPS_ORGANIZATION}/${INPUT_GITOPS_REPOSITORY}.git"
-  git push "https://${INPUT_GITOPS_USER}:${INPUT_GITOPS_TOKEN}@github.com/${INPUT_GITOPS_ORGANIZATION}/${INPUT_GITOPS_REPOSITORY}.git"
+  local branch="${GITOPS_BRANCH:-main}"
+  git pull --rebase "https://${INPUT_GITOPS_USER}:${INPUT_GITOPS_TOKEN}@github.com/${INPUT_GITOPS_ORGANIZATION}/${INPUT_GITOPS_REPOSITORY}.git" "${branch}"
+  git push "https://${INPUT_GITOPS_USER}:${INPUT_GITOPS_TOKEN}@github.com/${INPUT_GITOPS_ORGANIZATION}/${INPUT_GITOPS_REPOSITORY}.git" "HEAD:${branch}"
 }
 
 commit_changes() {

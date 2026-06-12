@@ -10,9 +10,9 @@ When you want to use this GitHub Action your GitHub repository should have a `de
 should use tags for
 releases.
 
-- For the `dev` branch we will change the files specified under `gitops-dev`.
-- For the `master` / `main` branch we will change the files specified under `gitops-stage`.
-- For a new tag the files under `gitops-prod` will be used.
+- For the `dev` branch we will change the files specified under `gitops-dev`. These changes are committed to the `dev` branch of the GitOps repository.
+- For the `master` / `main` branch we will change the files specified under `gitops-stage`. These changes are committed to the default branch (`main`) of the GitOps repository.
+- For a new tag the files under `gitops-prod` will be used. These changes are committed to the default branch (`main`) of the GitOps repository.
 
 This GitOps setup should be the default for all your repositories. However, if you have a special case, you can
 leave `gitops-dev`, `gitops-stage` and `gitops-prod` undefined, then those steps will be skipped.
