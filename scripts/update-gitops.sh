@@ -6,8 +6,7 @@
 # Required env vars: GITHUB_REF, GITHUB_SHA, GITHUB_REPOSITORY,
 #   INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE, INPUT_TAG, INPUT_PUSH,
 #   INPUT_GITOPS_USER, INPUT_GITOPS_EMAIL,
-#   INPUT_GITOPS_TOKEN, INPUT_GITOPS_ORGANIZATION, INPUT_GITOPS_REPOSITORY,
-#   INPUT_GITOPS_REPOSITORY_BRANCH
+#   INPUT_GITOPS_TOKEN, INPUT_GITOPS_ORGANIZATION, INPUT_GITOPS_REPOSITORY
 # Optional env vars: INPUT_GITOPS_DEV, INPUT_GITOPS_STAGE, INPUT_GITOPS_PROD
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,11 +24,15 @@ require_env INPUT_GITOPS_EMAIL
 require_env INPUT_GITOPS_TOKEN
 require_env INPUT_GITOPS_ORGANIZATION
 require_env INPUT_GITOPS_REPOSITORY
-require_env INPUT_GITOPS_REPOSITORY_BRANCH
 
 # Used by gitops-functions.sh (process_file_updates -> update_file)
 # shellcheck disable=SC2034
 IMAGE="${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${INPUT_TAG}"
+
+# Branch on the GitOps repo to commit & push to.
+# Defaults to "main"; DEV updates target the "dev" branch.
+# shellcheck disable=SC2034
+GITOPS_BRANCH="main"
 
 # Configure git user
 git config --global user.email "${INPUT_GITOPS_EMAIL}" && git config --global user.name "${INPUT_GITOPS_USER}"
@@ -40,6 +43,9 @@ if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && 
 
 elif [[ $GITHUB_REF == refs/heads/dev && -n "${INPUT_GITOPS_DEV:-}" ]]; then
   log_info "Run update for DEV"
+  GITOPS_BRANCH="dev"
+  git fetch origin dev
+  git checkout -B dev origin/dev
   process_file_updates "$INPUT_GITOPS_DEV" "true"
 
 elif [[ $GITHUB_REF == refs/tags/* && -n "${INPUT_GITOPS_PROD:-}" ]]; then

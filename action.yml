@@ -70,10 +70,6 @@ inputs:
     description: 'GitHub Repository for GitOps'
     required: true
     default: 'mops'
-  gitops-repository-branch:
-    description: 'GitHub Repository Branch for GitOps'
-    required: true
-    default: 'main'
   gitops-user:
     description: 'GitHub User for GitOps'
     required: true
@@ -188,7 +184,6 @@ runs:
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         repository: ${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}
-        ref: ${{ inputs.gitops-repository-branch }}
         token: ${{ inputs.gitops-token }}
         path: .github/${{ inputs.gitops-repository }}
 
@@ -207,7 +202,6 @@ runs:
         INPUT_GITOPS_TOKEN: ${{ inputs.gitops-token }}
         INPUT_GITOPS_ORGANIZATION: ${{ inputs.gitops-organization }}
         INPUT_GITOPS_REPOSITORY: ${{ inputs.gitops-repository }}
-        INPUT_GITOPS_REPOSITORY_BRANCH: ${{ inputs.gitops-repository-branch }}
         INPUT_GITOPS_DEV: ${{ inputs.gitops-dev }}
         INPUT_GITOPS_STAGE: ${{ inputs.gitops-stage }}
         INPUT_GITOPS_PROD: ${{ inputs.gitops-prod }}

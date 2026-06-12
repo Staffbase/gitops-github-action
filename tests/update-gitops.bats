@@ -17,7 +17,6 @@ setup() {
   export INPUT_GITOPS_TOKEN="fake-token"
   export INPUT_GITOPS_ORGANIZATION="Staffbase"
   export INPUT_GITOPS_REPOSITORY="mops"
-  export INPUT_GITOPS_REPOSITORY_BRANCH="main"
   export INPUT_GITOPS_DEV=""
   export INPUT_GITOPS_STAGE=""
   export INPUT_GITOPS_PROD=""
@@ -114,17 +113,38 @@ teardown() {
   ! grep -q 'git commit' "${TEST_TEMP_DIR}/git_calls.log" 2>/dev/null || true
 }
 
-# --- Simulate on gitops branch ---
+# --- GitOps target branch ---
 
-@test "updates DEV update on DEV devops branch" {
+@test "DEV update fetches and pushes to dev branch on gitops repo" {
   export GITHUB_REF="refs/heads/dev"
-  export INPUT_GITOPS_REPOSITORY_BRANCH="dev"
   export INPUT_GITOPS_DEV="kubernetes/namespaces/svc/dev/de1/deploy.yaml spec.image"
   run "$SCRIPT"
 
   assert_success
   assert_output --partial "Run update for DEV"
-  grep -q "${INPUT_GITOPS_REPOSITORY_BRANCH}" "${TEST_TEMP_DIR}/git_calls.log" 2>/dev/null || true
+  grep -q "git fetch origin dev" "${TEST_TEMP_DIR}/git_calls.log"
+  grep -q "git checkout -B dev origin/dev" "${TEST_TEMP_DIR}/git_calls.log"
+  grep -q "git pull --rebase .* dev$" "${TEST_TEMP_DIR}/git_calls.log"
+  grep -q "git push .* HEAD:dev" "${TEST_TEMP_DIR}/git_calls.log"
+}
+
+@test "STAGE update pushes to main branch on gitops repo" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_GITOPS_STAGE="kubernetes/namespaces/svc/stage/de1/deploy.yaml spec.image"
+  run "$SCRIPT"
+
+  assert_success
+  grep -q "git push .* HEAD:main" "${TEST_TEMP_DIR}/git_calls.log"
+  ! grep -q "git checkout -B dev" "${TEST_TEMP_DIR}/git_calls.log"
+}
+
+@test "PROD update pushes to main branch on gitops repo" {
+  export GITHUB_REF="refs/tags/v1.0.0"
+  export INPUT_GITOPS_PROD="kubernetes/namespaces/svc/prod/de1/deploy.yaml spec.image"
+  run "$SCRIPT"
+
+  assert_success
+  grep -q "git push .* HEAD:main" "${TEST_TEMP_DIR}/git_calls.log"
 }
 
 # --- No files configured ---
