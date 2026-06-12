@@ -31,8 +31,8 @@ IMAGE="${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${INPUT_TAG}"
 
 # Branch on the GitOps repo to commit & push to.
 # Defaults to "main"; DEV updates target the "dev" branch.
-# shellcheck disable=SC2034
-GITOPS_BRANCH="main"
+# Consumed by push_to_gitops_repo() in lib/gitops-functions.sh.
+export GITOPS_BRANCH="main"
 
 # Configure git user
 git config --global user.email "${INPUT_GITOPS_EMAIL}" && git config --global user.name "${INPUT_GITOPS_USER}"
@@ -43,7 +43,7 @@ if [[ ( $GITHUB_REF == refs/heads/master || $GITHUB_REF == refs/heads/main ) && 
 
 elif [[ $GITHUB_REF == refs/heads/dev && -n "${INPUT_GITOPS_DEV:-}" ]]; then
   log_info "Run update for DEV"
-  GITOPS_BRANCH="dev"
+  export GITOPS_BRANCH="dev"
   git fetch origin dev
   git checkout -B dev origin/dev
   process_file_updates "$INPUT_GITOPS_DEV" "true"
