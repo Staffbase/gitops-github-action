@@ -114,6 +114,19 @@ teardown() {
   ! grep -q 'git commit' "${TEST_TEMP_DIR}/git_calls.log" 2>/dev/null || true
 }
 
+# --- Simulate on gitops branch ---
+
+@test "updates DEV update on DEV devops branch" {
+  export GITHUB_REF="refs/heads/dev"
+  export INPUT_GITOPS_REPOSITORY_BRANCH="dev"
+  export INPUT_GITOPS_DEV="kubernetes/namespaces/svc/dev/de1/deploy.yaml spec.image"
+  run "$SCRIPT"
+
+  assert_success
+  assert_output --partial "Run update for DEV"
+  grep -q "${INPUT_GITOPS_REPOSITORY_BRANCH}" "${TEST_TEMP_DIR}/git_calls.log" 2>/dev/null || true
+}
+
 # --- No files configured ---
 
 @test "does nothing when no gitops files are configured" {
