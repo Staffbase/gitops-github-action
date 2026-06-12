@@ -17,6 +17,7 @@ setup() {
   export INPUT_GITOPS_TOKEN="fake-token"
   export INPUT_GITOPS_ORGANIZATION="Staffbase"
   export INPUT_GITOPS_REPOSITORY="mops"
+  export INPUT_GITOPS_REPOSITORY_BRANCH="main"
   export IMAGE="registry.staffbase.com/my-service:main-abcdef12"
 
   # Create mock yq

@@ -17,6 +17,7 @@ setup() {
   export INPUT_GITOPS_TOKEN="fake-token"
   export INPUT_GITOPS_ORGANIZATION="Staffbase"
   export INPUT_GITOPS_REPOSITORY="mops"
+  export INPUT_GITOPS_REPOSITORY_BRANCH="main"
   export INPUT_GITOPS_DEV=""
   export INPUT_GITOPS_STAGE=""
   export INPUT_GITOPS_PROD=""
