@@ -23,22 +23,22 @@ ALIAS_TAG=""
 # set_branch_tags computes the immutable tag(s) for an environment branch and
 # assigns them to the globals TAG and ALIAS_TAG.
 #
-# When INPUT_DOCKER_TAG_TIMESTAMP is "true" the canonical TAG gets a UTC timestamp
-# inserted before the short SHA (e.g. dev-20260602143055-abcdef12). This makes
-# branch tags sortable by Flux image automation (numerical policy) — the Git SHA
-# alone is not orderable, so Flux cannot otherwise tell which build is newest.
-# In that case ALIAS_TAG holds the legacy <prefix>-<short-sha> tag, which is also
-# pushed: it is the stable per-commit handle that retag-image.sh looks up to find
-# the source image for a release, so dropping it would break the release retag.
+# By default (INPUT_DOCKER_TAG_TIMESTAMP unset or "true") the canonical TAG gets a
+# UTC timestamp inserted before the short SHA (e.g. dev-20260602143055-abcdef12).
+# This makes branch tags sortable by Flux image automation (numerical policy) — the
+# Git SHA alone is not orderable, so Flux cannot otherwise tell which build is
+# newest. In that case ALIAS_TAG holds the legacy <prefix>-<short-sha> tag, which is
+# also pushed: it is the stable per-commit handle that retag-image.sh looks up to
+# find the source image for a release, so dropping it would break the release retag.
 # The alias does not match Flux's "<prefix>-<digits>-<hex>" pattern, so Flux
-# ignores it. When the flag is unset/false only the legacy <prefix>-<short-sha>
-# tag is produced, so existing consumers are unaffected.
+# ignores it. Set INPUT_DOCKER_TAG_TIMESTAMP="false" to opt out and produce only the
+# legacy <prefix>-<short-sha> tag.
 #
 # The timestamp is overridable via BUILD_TIMESTAMP for deterministic tests.
 set_branch_tags() {
   local prefix="$1"
   local sha="${GITHUB_SHA::8}"
-  if [[ "${INPUT_DOCKER_TAG_TIMESTAMP:-false}" == "true" ]]; then
+  if [[ "${INPUT_DOCKER_TAG_TIMESTAMP:-true}" == "true" ]]; then
     local ts="${BUILD_TIMESTAMP:-$(date -u +%Y%m%d%H%M%S)}"
     TAG="${prefix}-${ts}-${sha}"
     ALIAS_TAG="${prefix}-${sha}"

@@ -11,8 +11,9 @@ setup() {
   export INPUT_DOCKER_IMAGE="my-service"
   export INPUT_DOCKER_CUSTOM_TAG=""
   export INPUT_DOCKER_DISABLE_RETAGGING="false"
-  # Timestamp suffix is opt-in; default off so the legacy <prefix>-<sha> format
-  # is the baseline. Tests that exercise the suffix set the flag explicitly.
+  # Timestamp suffix is on by default; leaving the flag unset exercises that
+  # default (the timestamped <prefix>-<ts>-<sha> format). Tests that need the
+  # legacy shape set the flag to "false" explicitly.
   unset INPUT_DOCKER_TAG_TIMESTAMP
   # Keeping the "v" prefix on release tags is opt-in; default off.
   unset INPUT_DOCKER_TAG_KEEP_V_PREFIX
@@ -30,7 +31,7 @@ teardown() {
   export GITHUB_REF="refs/heads/main"
   run "$SCRIPT"
   assert_success
-  assert_output_value "tag" "main-abcdef12"
+  assert_output_value "tag" "main-20260602143055-abcdef12"
   assert_output_value "latest" "main"
   assert_output_value "push" "true"
   assert_output_value "build" "true"
@@ -42,7 +43,7 @@ teardown() {
   export GITHUB_REF="refs/heads/master"
   run "$SCRIPT"
   assert_success
-  assert_output_value "tag" "master-abcdef12"
+  assert_output_value "tag" "master-20260602143055-abcdef12"
   assert_output_value "latest" "master"
   assert_output_value "push" "true"
   assert_output_value "build" "true"
@@ -54,13 +55,13 @@ teardown() {
   export GITHUB_REF="refs/heads/dev"
   run "$SCRIPT"
   assert_success
-  assert_output_value "tag" "dev-abcdef12"
+  assert_output_value "tag" "dev-20260602143055-abcdef12"
   assert_output_value "latest" "dev"
   assert_output_value "push" "true"
   assert_output_value "build" "true"
 }
 
-# --- timestamp suffix (opt-in, Flux-sortable) ---
+# --- timestamp suffix (default, Flux-sortable) ---
 
 @test "dev branch with timestamp flag inserts timestamp before sha" {
   export INPUT_DOCKER_TAG_TIMESTAMP="true"
@@ -83,6 +84,7 @@ teardown() {
 }
 
 @test "no <prefix>-<sha> alias is added when timestamp flag is off" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="false"
   export GITHUB_REF="refs/heads/main"
   run "$SCRIPT"
   assert_success
@@ -127,12 +129,33 @@ teardown() {
   assert_output_value "tag" "2025.50.14"
 }
 
-@test "timestamp flag explicitly 'false' produces legacy shape" {
+# --- legacy shape (timestamp explicitly off) ---
+
+@test "dev branch with timestamp flag off produces legacy shape" {
   export INPUT_DOCKER_TAG_TIMESTAMP="false"
   export GITHUB_REF="refs/heads/dev"
   run "$SCRIPT"
   assert_success
   assert_output_value "tag" "dev-abcdef12"
+  assert_output_value "latest" "dev"
+}
+
+@test "main branch with timestamp flag off produces legacy shape" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="false"
+  export GITHUB_REF="refs/heads/main"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "main-abcdef12"
+  assert_output_value "latest" "main"
+}
+
+@test "master branch with timestamp flag off produces legacy shape" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="false"
+  export GITHUB_REF="refs/heads/master"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "master-abcdef12"
+  assert_output_value "latest" "master"
 }
 # --- version tag ---
 
@@ -247,7 +270,7 @@ teardown() {
   assert_success
   local tag_list
   tag_list=$(get_output_value "tag_list")
-  [[ "$tag_list" == "registry.staffbase.com/my-service:main-abcdef12,registry.staffbase.com/my-service:main" ]]
+  [[ "$tag_list" == "registry.staffbase.com/my-service:main-20260602143055-abcdef12,registry.staffbase.com/my-service:main-abcdef12,registry.staffbase.com/my-service:main" ]]
 }
 
 @test "tag_list has no latest suffix for feature branches" {
