@@ -114,7 +114,7 @@ Whenever the action updates a GitOps file, it stamps the following annotations o
 |------------|-------|
 | `deploy.staffbase.com/repositoryFullName` | The source repository in `owner/repo` form (`$GITHUB_REPOSITORY`) |
 | `deploy.staffbase.com/commitSha` | The commit SHA being deployed (`$GITHUB_SHA`) |
-| `deploy.staffbase.com/version` | The deployed image tag — `dev-<short-sha>` on `dev`, `main-<short-sha>` on `main`, `master-<short-sha>` on `master` (with `docker-tag-timestamp` a UTC timestamp is inserted before the SHA), the version without the leading `v` on `v*` tag pushes, and the tag name on other tag pushes |
+| `deploy.staffbase.com/version` | The deployed image tag — `dev-<timestamp>-<short-sha>` on `dev`, `main-<timestamp>-<short-sha>` on `main`, `master-<timestamp>-<short-sha>` on `master` (the UTC timestamp is inserted by default; with `docker-tag-timestamp: 'false'` it falls back to `<prefix>-<short-sha>`), the version without the leading `v` on `v*` tag pushes, and the tag name on other tag pushes |
 
 These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names and are read by `flux-deployment-reporter` to report deployments to Swarmia once Flux finishes reconciling.
 
@@ -126,7 +126,7 @@ These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings
 | `docker-registry-api`       | Docker Registry API (used for retagging without pulling)                                                                       | `https://registry.staffbase.com/v2/` |
 | `docker-image`              | Docker Image                                                                                                                   |                                                      |
 | `docker-custom-tag`         | Docker Custom Tag to be set on the image                                                                                       |                                                      |
-| `docker-tag-timestamp`      | Insert a UTC timestamp into `dev`/`main`/`master` branch tags (`dev-<timestamp>-<short-sha>`) to make them sortable for Flux image automation | `false`                              |
+| `docker-tag-timestamp`      | Insert a UTC timestamp into `dev`/`main`/`master` branch tags (`dev-<timestamp>-<short-sha>`) to make them sortable for Flux image automation. Enabled by default; set to `'false'` for the legacy `<prefix>-<short-sha>` format | `true`                              |
 | `docker-tag-keep-v-prefix`  | Keep the leading `v` on release (`v*`) tags (`v1.2.3` → `v1.2.3`). Default strips it (`v1.2.3` → `1.2.3`) | `false`                                           |
 | `docker-username`           | Username for the Docker Registry                                                                                               |                                                      |
 | `docker-password`           | Password for the Docker Registry                                                                                               |                                                      |
@@ -159,22 +159,22 @@ These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings
 
 The generated image tag depends on the Git ref:
 
-| Ref | Tag (default) | Tag (`docker-tag-timestamp: 'true'`) | Floating tag |
+| Ref | Tag (default) | Tag (`docker-tag-timestamp: 'false'`) | Floating tag |
 |-----|---------------|--------------------------------------|--------------|
-| `dev` branch | `dev-<short-sha>` | `dev-<utc-timestamp>-<short-sha>` | `dev` |
-| `main` branch | `main-<short-sha>` | `main-<utc-timestamp>-<short-sha>` | `main` |
-| `master` branch | `master-<short-sha>` | `master-<utc-timestamp>-<short-sha>` | `master` |
+| `dev` branch | `dev-<utc-timestamp>-<short-sha>` | `dev-<short-sha>` | `dev` |
+| `main` branch | `main-<utc-timestamp>-<short-sha>` | `main-<short-sha>` | `main` |
+| `master` branch | `master-<utc-timestamp>-<short-sha>` | `master-<short-sha>` | `master` |
 | `v*` tag (prod) | the version with the `v` stripped, e.g. `v2025.50.14` → `2025.50.14` (or kept with `docker-tag-keep-v-prefix: 'true'`) | _(unchanged)_ | `latest` |
 | other branch | `<short-sha>` (not pushed) | _(unchanged)_ | — |
 
-By default branch tags keep the legacy `<prefix>-<short-sha>` shape. Set
-`docker-tag-timestamp: 'true'` to insert a `YYYYMMDDHHMMSS` (UTC) timestamp before
-the SHA. This makes branch tags **sortable** so
+By default branch tags carry a `YYYYMMDDHHMMSS` (UTC) timestamp inserted before the
+SHA. This makes branch tags **sortable** so
 [Flux image automation](https://fluxcd.io/flux/components/image/) can pick the
 newest build — the Git SHA alone is not orderable. The short SHA is kept for
-traceability and Flux sorts on the timestamp only.
+traceability and Flux sorts on the timestamp only. Set `docker-tag-timestamp: 'false'`
+to fall back to the legacy `<prefix>-<short-sha>` shape.
 
-> **Note:** with `docker-tag-timestamp: 'true'` the build also pushes the plain
+> **Note:** with the timestamp enabled (the default) the build also pushes the plain
 > `<prefix>-<short-sha>` tag alongside the timestamped one. That stable per-commit
 > tag is what the release step retags into the version tag, so it must continue
 > to exist. It does not match the `^<prefix>-[0-9]+-[0-9a-f]+$` filter below, so

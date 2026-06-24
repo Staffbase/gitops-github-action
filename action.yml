@@ -18,9 +18,9 @@ inputs:
     description: 'Docker Custom Tag'
     required: false
   docker-tag-timestamp:
-    description: 'Insert a UTC timestamp into dev/main/master branch tags (e.g. dev-20260602143055-<short-sha>) to make them sortable for Flux image automation. Opt-in; defaults to the legacy <prefix>-<short-sha> format.'
+    description: 'Insert a UTC timestamp into dev/main/master branch tags (e.g. dev-20260602143055-<short-sha>) to make them sortable for Flux image automation. Enabled by default; set to ''false'' for the legacy <prefix>-<short-sha> format.'
     required: false
-    default: 'false'
+    default: 'true'
   docker-tag-keep-v-prefix:
     description: 'Keep the leading "v" on release (v*) tags (v1.2.3 -> v1.2.3). Opt-in; defaults to stripping it (v1.2.3 -> 1.2.3).'
     required: false
