@@ -33,19 +33,23 @@ update_file() {
   local field="$2"
   local image="$3"
 
-  echo "Check if path ${file} ${field} exists and get old current version"
-  yq -e ."${field}" "${file}"
-  echo "Run update ${file} ${field} ${image}"
-  if [[ "${field}" == *.tag ]]; then
-    yq -i ".${field}=\"${INPUT_TAG}\"" "${file}"
-  else
-    local field_type
-    field_type=$(yq "(.${field} | type)" "${file}" 2>/dev/null || echo "!!null")
-    if [[ "${field_type}" == "!!map" ]] && yq -e ".${field} | (has(\"tag\") or has(\"repository\"))" "${file}" > /dev/null 2>&1; then
-      yq -i ".${field}.tag=\"${INPUT_TAG}\"" "${file}"
+  if [[ -n "$field" ]]; then
+    echo "Check if path ${file} ${field} exists and get old current version"
+    yq -e ."${field}" "${file}"
+    echo "Run update ${file} ${field} ${image}"
+    if [[ "${field}" == *.tag ]]; then
+      yq -i ".${field}=\"${INPUT_TAG}\"" "${file}"
     else
-      yq -i ."${field}"=\""${image}"\" "${file}"
+      local field_type
+      field_type=$(yq "(.${field} | type)" "${file}" 2>/dev/null || echo "!!null")
+      if [[ "${field_type}" == "!!map" ]] && yq -e ".${field} | (has(\"tag\") or has(\"repository\"))" "${file}" > /dev/null 2>&1; then
+        yq -i ".${field}.tag=\"${INPUT_TAG}\"" "${file}"
+      else
+        yq -i ."${field}"=\""${image}"\" "${file}"
+      fi
     fi
+  else
+    echo "No field for ${file}; image tag owned by Flux image automation — writing annotations only"
   fi
 
   echo "Writing deployment annotations to ${file}"

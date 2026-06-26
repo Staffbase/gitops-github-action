@@ -118,6 +118,33 @@ Whenever the action updates a GitOps file, it stamps the following annotations o
 
 These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names and are read by `flux-deployment-reporter` to report deployments to Swarmia once Flux finishes reconciling.
 
+### Annotate-only mode (Flux image automation)
+
+Each `gitops-dev`/`gitops-stage`/`gitops-prod` line is normally `<path> <field>`, where
+`<field>` is the yq path of the image reference to update. **Omit the field** (provide a
+path only) and the action will write the `deploy.staffbase.com/*` annotations **without
+touching the image tag**:
+
+```yaml
+gitops-stage: |-
+  kubernetes/namespaces/my-service/stage/de1/my-service-helm.yaml
+```
+
+Use this for apps whose image tag is owned by
+[Flux image automation](https://fluxcd.io/flux/components/image/) (ImageRepository /
+ImagePolicy / ImageUpdateAutomation), which scans the registry and commits the `tag:`
+line back to the GitOps repo itself. The action still needs to stamp the annotations,
+because image automation only knows the tag — it never knows the source `commitSha` or
+`repositoryFullName` that Swarmia needs for DORA metrics. This also yields a full commit
+SHA in every environment, including prod, where image tags (e.g. `2025.50.14`) carry no SHA.
+
+> **Note:** the `version` annotation is set to the freshly built tag, so it may briefly
+> lead the actual `tag:` until image automation selects the new build. It converges, and
+> the reporter dedupes on `(commitSha, version)`, so it self-heals.
+
+The two-token `<path> <field>` form is unchanged: it updates the image **and** writes the
+annotations, exactly as before.
+
 ## Inputs
 
 | Name                        | Description                                                                                                                    | Default                                              |
@@ -143,9 +170,9 @@ These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings
 | `gitops-user`               | GitHub User for GitOps                                                                                                         | `Staffbot`                                           |
 | `gitops-email`              | GitHub Email for GitOps                                                                                                        | `staffbot@staffbase.com`                             |
 | `gitops-token`              | GitHub Token for GitOps                                                                                                        |                                                      |
-| `gitops-dev`                | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository              |                                                      |
-| `gitops-stage`              | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository            |                                                      |
-| `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                                                      |
+| `gitops-dev`                | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository. Each line is `<path> <field>`; omit `<field>` (path only) to write annotations without touching the image — see [Annotate-only mode](#annotate-only-mode-flux-image-automation) |                                                      |
+| `gitops-stage`              | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository. Each line is `<path> <field>`; omit `<field>` (path only) for [annotate-only mode](#annotate-only-mode-flux-image-automation) |                                                      |
+| `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository. Each line is `<path> <field>`; omit `<field>` (path only) for [annotate-only mode](#annotate-only-mode-flux-image-automation) |                                                      |
 | `working-directory`         | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                                                  |
 
 ## Outputs

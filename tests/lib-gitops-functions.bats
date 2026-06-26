@@ -147,6 +147,63 @@ EOF
   ! grep -qE 'deploy\.staffbase\.com/(repo|sha)"' "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
+# --- update_file: annotate-only mode (empty field) ---
+
+@test "update_file with empty field skips image update" {
+  update_file "helmrelease.yaml" "" ""
+  # the field-existence check (yq -e .<field>) only runs in field mode
+  ! grep -q 'yq -e .' "${TEST_TEMP_DIR}/yq_calls.log"
+  # no image/tag assignment written
+  ! grep -qE 'yq -i \.[^ ]*=' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "update_file with empty field still writes all three annotations" {
+  update_file "helmrelease.yaml" "" ""
+  grep -q 'deploy.staffbase.com/repositoryFullName' "${TEST_TEMP_DIR}/yq_calls.log"
+  grep -q 'deploy.staffbase.com/commitSha' "${TEST_TEMP_DIR}/yq_calls.log"
+  grep -q "deploy.staffbase.com/version.*${INPUT_TAG}" "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "INTEGRATION: empty field annotates without touching the image tag" {
+  rm -rf "${TEST_TEMP_DIR}/mocks"
+  skip_if_no_yq
+  local test_file="${TEST_TEMP_DIR}/helmrelease.yaml"
+  cp "${BATS_TEST_DIRNAME}/fixtures/helmrelease.yaml" "$test_file"
+
+  update_file "$test_file" "" ""
+
+  # image tag is unchanged
+  run yq '.spec.values.workload.container.image.tag' "$test_file"
+  assert_output "placeholder"
+
+  # annotations are stamped
+  run yq '.metadata.annotations["deploy.staffbase.com/repositoryFullName"]' "$test_file"
+  assert_output "$GITHUB_REPOSITORY"
+  run yq '.metadata.annotations["deploy.staffbase.com/commitSha"]' "$test_file"
+  assert_output "$GITHUB_SHA"
+  run yq '.metadata.annotations["deploy.staffbase.com/version"]' "$test_file"
+  assert_output "$INPUT_TAG"
+}
+
+@test "INTEGRATION: provided field updates the tag AND annotates" {
+  rm -rf "${TEST_TEMP_DIR}/mocks"
+  skip_if_no_yq
+  local test_file="${TEST_TEMP_DIR}/helmrelease.yaml"
+  cp "${BATS_TEST_DIRNAME}/fixtures/helmrelease.yaml" "$test_file"
+
+  update_file "$test_file" "spec.values.workload.container.image" "$IMAGE"
+
+  # image tag updated
+  run yq '.spec.values.workload.container.image.tag' "$test_file"
+  assert_output "$INPUT_TAG"
+
+  # annotations also stamped
+  run yq '.metadata.annotations["deploy.staffbase.com/commitSha"]' "$test_file"
+  assert_output "$GITHUB_SHA"
+  run yq '.metadata.annotations["deploy.staffbase.com/version"]' "$test_file"
+  assert_output "$INPUT_TAG"
+}
+
 # --- commit_changes ---
 
 @test "commit_changes commits and pushes when push is true" {
@@ -194,6 +251,13 @@ file2.yaml spec.image"
   local yq_count
   yq_count=$(grep -c 'yq -e' "${TEST_TEMP_DIR}/yq_calls.log")
   [[ "$yq_count" -eq 2 ]]
+}
+
+@test "process_file_updates handles path-only line (annotate only)" {
+  process_file_updates "file1.yaml" "false"
+  # no field check performed, but annotations written
+  ! grep -q 'yq -e .' "${TEST_TEMP_DIR}/yq_calls.log"
+  grep -q 'deploy.staffbase.com/commitSha' "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
 @test "process_file_updates commits when should_commit is true" {
