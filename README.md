@@ -164,6 +164,7 @@ annotations, exactly as before.
 | `docker-build-target`       | Sets the target stage to build like: "runtime"                                                                                 |                                                      |
 | `docker-build-platforms`       | Sets the target platforms for build                                                                                 | linux/amd64 |
 | `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `false`                                              |
+| `docker-build-outputs`      | Custom output destinations (e.g. `type=registry,push=true,compression=zstd,force-compression=true`). When set, this replaces the default push behavior — include `push=true` if pushing is desired |                                          |
 | `docker-disable-retagging`  | Disables retagging of existing images and run a new build instead                                                              | `false`                                              |
 | `gitops-organization`       | GitHub Organization for GitOps                                                                                                 | `Staffbase`                                          |
 | `gitops-repository`         | GitHub Repository for GitOps                                                                                                   | `mops`                                               |
@@ -173,6 +174,9 @@ annotations, exactly as before.
 | `gitops-dev`                | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository. Each line is `<path> <field>`; omit `<field>` (path only) to write annotations without touching the image — see [Annotate-only mode](#annotate-only-mode-flux-image-automation) |                                                      |
 | `gitops-stage`              | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository. Each line is `<path> <field>`; omit `<field>` (path only) for [annotate-only mode](#annotate-only-mode-flux-image-automation) |                                                      |
 | `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository. Each line is `<path> <field>`; omit `<field>` (path only) for [annotate-only mode](#annotate-only-mode-flux-image-automation) |                                                      |
+| `upwind-client-id`          | Upwind Client ID                                                                                                              |                                                      |
+| `upwind-organization-id`    | Upwind Organization ID                                                                                                        |                                                      |
+| `upwind-client-secret`      | Upwind Client Secret                                                                                                          |                                                      |
 | `working-directory`         | The directory in which the GitOps action should be executed. The docker-file variable should be relative to working directory. | `.`                                                  |
 
 ## Outputs
