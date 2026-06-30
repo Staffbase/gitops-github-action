@@ -282,6 +282,55 @@ teardown() {
   [[ "$tag_list" == "registry.staffbase.com/my-service:abcdef12" ]]
 }
 
+# --- gitops_tag (always non-timestamped; written to the external GitOps repo) ---
+
+@test "gitops_tag drops the timestamp on dev branch (default)" {
+  export GITHUB_REF="refs/heads/dev"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "dev-20260602143055-abcdef12"
+  assert_output_value "gitops_tag" "dev-abcdef12"
+}
+
+@test "gitops_tag drops the timestamp on main branch (default)" {
+  export GITHUB_REF="refs/heads/main"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "main-20260602143055-abcdef12"
+  assert_output_value "gitops_tag" "main-abcdef12"
+}
+
+@test "gitops_tag equals tag when timestamp flag is off" {
+  export INPUT_DOCKER_TAG_TIMESTAMP="false"
+  export GITHUB_REF="refs/heads/main"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "tag" "main-abcdef12"
+  assert_output_value "gitops_tag" "main-abcdef12"
+}
+
+@test "gitops_tag equals tag for version (prod) tags" {
+  export GITHUB_REF="refs/tags/v1.2.3"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "gitops_tag" "1.2.3"
+}
+
+@test "gitops_tag equals tag for custom tags" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_CUSTOM_TAG="my-custom-tag"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "gitops_tag" "my-custom-tag"
+}
+
+@test "gitops_tag equals tag for feature branches" {
+  export GITHUB_REF="refs/heads/feature/my-feature"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "gitops_tag" "abcdef12"
+}
+
 # --- validation ---
 
 @test "fails when GITHUB_REF is missing" {

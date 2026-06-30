@@ -195,7 +195,7 @@ runs:
       env:
         INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
-        INPUT_TAG: ${{ steps.preparation.outputs.tag }}
+        INPUT_TAG: ${{ steps.preparation.outputs.gitops_tag }}
         INPUT_PUSH: ${{ steps.preparation.outputs.push }}
         INPUT_GITOPS_USER: ${{ inputs.gitops-user }}
         INPUT_GITOPS_EMAIL: ${{ inputs.gitops-email }}

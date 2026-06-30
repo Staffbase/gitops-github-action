@@ -114,7 +114,7 @@ Whenever the action updates a GitOps file, it stamps the following annotations o
 |------------|-------|
 | `deploy.staffbase.com/repositoryFullName` | The source repository in `owner/repo` form (`$GITHUB_REPOSITORY`) |
 | `deploy.staffbase.com/commitSha` | The commit SHA being deployed (`$GITHUB_SHA`) |
-| `deploy.staffbase.com/version` | The deployed image tag — `dev-<timestamp>-<short-sha>` on `dev`, `main-<timestamp>-<short-sha>` on `main`, `master-<timestamp>-<short-sha>` on `master` (the UTC timestamp is inserted by default; with `docker-tag-timestamp: 'false'` it falls back to `<prefix>-<short-sha>`), the version without the leading `v` on `v*` tag pushes, and the tag name on other tag pushes |
+| `deploy.staffbase.com/version` | The image tag written to the GitOps repo — always the **non-timestamped** tag: `dev-<short-sha>` on `dev`, `main-<short-sha>` on `main`, `master-<short-sha>` on `master`, the version without the leading `v` on `v*` tag pushes, and the tag name on other tag pushes. See [GitOps tag](#gitops-tag) below |
 
 These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names and are read by `flux-deployment-reporter` to report deployments to Swarmia once Flux finishes reconciling.
 
@@ -176,9 +176,26 @@ to fall back to the legacy `<prefix>-<short-sha>` shape.
 
 > **Note:** with the timestamp enabled (the default) the build also pushes the plain
 > `<prefix>-<short-sha>` tag alongside the timestamped one. That stable per-commit
-> tag is what the release step retags into the version tag, so it must continue
+> tag is what the release step retags into the version tag and what the action
+> writes to the GitOps repo (see [GitOps tag](#gitops-tag)), so it must continue
 > to exist. It does not match the `^<prefix>-[0-9]+-[0-9a-f]+$` filter below, so
 > Flux ignores it.
+
+### GitOps tag
+
+The tag the action **builds and pushes** is the timestamped one (so Flux image
+automation can sort it). The tag the action **writes to the external GitOps repo**
+(`gitops-dev`/`gitops-stage`/`gitops-prod` files and the deployment annotations) is
+always the **non-timestamped** tag — the stable `<prefix>-<short-sha>` alias for
+branch builds, and the plain tag for `v*`/custom builds (which never carry a
+timestamp).
+
+This is deliberate and not configurable. When the action runs across separate
+invocations — e.g. one step builds the image and a later step pushes and updates
+GitOps — each invocation recomputes a *fresh* timestamp, so the timestamped tag
+differs between them. The `<prefix>-<short-sha>` alias is deterministic, so the
+GitOps reference stays consistent and always points at an image that was actually
+pushed.
 
 With the timestamp enabled, use one `ImagePolicy` per environment, filtering by prefix:
 

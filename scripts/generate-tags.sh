@@ -95,8 +95,19 @@ if [[ -n "${LATEST:-}" ]]; then
   TAG_LIST+=",${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${LATEST}"
 fi
 
+# GITOPS_TAG is the tag written to the external GitOps repo. It is always the
+# non-timestamped tag: the stable <prefix>-<short-sha> alias for branch builds
+# (ALIAS_TAG), and the plain TAG for release/custom builds (which have no
+# timestamp anyway). Decoupling it from the timestamped image TAG avoids a
+# mismatch when the action runs in separate invocations (e.g. build then push):
+# each invocation recomputes a fresh timestamp for TAG, but the alias is
+# deterministic, so the GitOps reference stays consistent and points at an image
+# that was actually pushed.
+GITOPS_TAG="${ALIAS_TAG:-$TAG}"
+
 set_output "build" "$BUILD"
 set_output "latest" "${LATEST:-}"
 set_output "push" "$PUSH"
 set_output "tag" "$TAG"
 set_output "tag_list" "$TAG_LIST"
+set_output "gitops_tag" "$GITOPS_TAG"
