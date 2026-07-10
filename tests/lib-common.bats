@@ -59,6 +59,26 @@ teardown() {
   assert_output "OUTPUT key=value"
 }
 
+# --- reverse_domain ---
+
+@test "reverse_domain reverses a three-part domain" {
+  run reverse_domain "deploy.staffbase.com"
+  assert_success
+  assert_output "com.staffbase.deploy"
+}
+
+@test "reverse_domain reverses an arbitrary domain" {
+  run reverse_domain "deploy.example.org"
+  assert_success
+  assert_output "org.example.deploy"
+}
+
+@test "reverse_domain leaves a single segment unchanged" {
+  run reverse_domain "localhost"
+  assert_success
+  assert_output "localhost"
+}
+
 # --- require_env ---
 
 @test "require_env succeeds when variable is set" {
