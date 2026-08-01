@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@7433384f8737623f2c8eb247427830629ce66d97 # v14.1.0
+    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@a38088448bfd106dbabe9f3b88f8cc8c88aaec83 # v15.1.1
     secrets:
       app_id: ${{ vars.STAFFBASE_ACTIONS_APP_ID }}
       private_key: ${{ secrets.STAFFBASE_ACTIONS_PRIVATE_KEY }}
