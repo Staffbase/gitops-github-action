@@ -62,6 +62,18 @@ inputs:
     description: 'Disable retagging of existing images'
     required: false
     default: 'false'
+  deployment-annotations:
+    description: 'Stamp deployment-tracking annotations (deploy.staffbase.com/repositoryFullName, /commitSha, /version) onto the updated GitOps manifests. Enabled by default; set to ''false'' to skip.'
+    required: false
+    default: 'true'
+  deployment-domain:
+    description: 'Domain used as the key namespace for deployment-tracking metadata. Applied verbatim to GitOps annotation keys (<domain>/repositoryFullName) and reversed to reverse-DNS for image label keys (deploy.staffbase.com -> com.staffbase.deploy.repositoryFullName).'
+    required: false
+    default: 'deploy.staffbase.com'
+  deployment-labels:
+    description: 'Stamp deployment-tracking labels (repositoryFullName, commitSha, version) onto the built Docker image. Enabled by default; only applied on builds, not on release/custom retags. Set to ''false'' to skip.'
+    required: false
+    default: 'true'
   gitops-organization:
     description: 'GitHub Organization for GitOps'
     required: true
@@ -127,6 +139,13 @@ runs:
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
       run: ${{ github.action_path }}/scripts/generate-tags.sh
 
+    - name: Generate Deployment Label Prefix
+      id: deployment_labels
+      shell: bash
+      env:
+        INPUT_DEPLOYMENT_DOMAIN: ${{ inputs.deployment-domain }}
+      run: ${{ github.action_path }}/scripts/generate-label-prefix.sh
+
     - name: Verify Architecture Match
       shell: bash
       if: steps.preparation.outputs.build == 'true'
@@ -158,6 +177,10 @@ runs:
         target: ${{ inputs.docker-build-target }}
         build-args: ${{ inputs.docker-build-args }}
         tags: ${{ steps.preparation.outputs.tag_list }}
+        labels: |
+          ${{ inputs.deployment-labels == 'true' && format('{0}.repositoryFullName={1}', steps.deployment_labels.outputs.label_prefix, github.repository) || '' }}
+          ${{ inputs.deployment-labels == 'true' && format('{0}.commitSha={1}', steps.deployment_labels.outputs.label_prefix, github.sha) || '' }}
+          ${{ inputs.deployment-labels == 'true' && format('{0}.version={1}', steps.deployment_labels.outputs.label_prefix, steps.preparation.outputs.gitops_tag) || '' }}
         secrets: ${{ inputs.docker-build-secrets }}
         secret-files: ${{ inputs.docker-build-secret-files }}
         platforms: ${{ inputs.docker-build-platforms }}
@@ -205,6 +228,8 @@ runs:
         INPUT_GITOPS_DEV: ${{ inputs.gitops-dev }}
         INPUT_GITOPS_STAGE: ${{ inputs.gitops-stage }}
         INPUT_GITOPS_PROD: ${{ inputs.gitops-prod }}
+        INPUT_DEPLOYMENT_ANNOTATIONS: ${{ inputs.deployment-annotations }}
+        INPUT_DEPLOYMENT_DOMAIN: ${{ inputs.deployment-domain }}
       run: ${{ github.action_path }}/scripts/update-gitops.sh
 
     - name: Emit Image Build Event to Upwind.io

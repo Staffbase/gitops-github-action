@@ -6,6 +6,8 @@
 #   INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE, INPUT_TAG, INPUT_PUSH,
 #   INPUT_GITOPS_USER, INPUT_GITOPS_TOKEN,
 #   INPUT_GITOPS_ORGANIZATION, INPUT_GITOPS_REPOSITORY,
+#   INPUT_DEPLOYMENT_ANNOTATIONS (optional, defaults to "true"),
+#   INPUT_DEPLOYMENT_DOMAIN (optional, defaults to "deploy.staffbase.com"),
 #   GITHUB_REPOSITORY, GITHUB_SHA, IMAGE
 
 push_to_gitops_repo() {
@@ -48,10 +50,15 @@ update_file() {
     fi
   fi
 
-  echo "Writing deployment annotations to ${file}"
-  yq -i '.metadata.annotations["deploy.staffbase.com/repositoryFullName"] = "'"${GITHUB_REPOSITORY}"'"' "${file}"
-  yq -i '.metadata.annotations["deploy.staffbase.com/commitSha"] = "'"${GITHUB_SHA}"'"' "${file}"
-  yq -i '.metadata.annotations["deploy.staffbase.com/version"] = "'"${INPUT_TAG}"'"' "${file}"
+  if [[ "${INPUT_DEPLOYMENT_ANNOTATIONS:-true}" == "true" ]]; then
+    local domain="${INPUT_DEPLOYMENT_DOMAIN:-deploy.staffbase.com}"
+    echo "Writing deployment annotations to ${file}"
+    yq -i '.metadata.annotations["'"${domain}"'/repositoryFullName"] = "'"${GITHUB_REPOSITORY}"'"' "${file}"
+    yq -i '.metadata.annotations["'"${domain}"'/commitSha"] = "'"${GITHUB_SHA}"'"' "${file}"
+    yq -i '.metadata.annotations["'"${domain}"'/version"] = "'"${INPUT_TAG}"'"' "${file}"
+  else
+    echo "Deployment annotations disabled (INPUT_DEPLOYMENT_ANNOTATIONS != true); skipping"
+  fi
 }
 
 process_file_updates() {

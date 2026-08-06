@@ -30,8 +30,23 @@ set_output() {
   fi
 }
 
-# --- Validation ---
+# reverse_domain turns a dotted domain into reverse-DNS order
+# (deploy.staffbase.com -> com.staffbase.deploy). Used to derive OCI image
+# label keys from the same deployment domain used verbatim for GitOps annotations.
+reverse_domain() {
+  local domain="$1"
+  local IFS='.'
+  local -a parts
+  read -ra parts <<< "$domain"
+  local out="" i
+  for (( i=${#parts[@]}-1; i>=0; i-- )); do
+    out+="${parts[i]}"
+    (( i > 0 )) && out+="."
+  done
+  printf '%s' "$out"
+}
 
+# --- Validation ---
 require_env() {
   local var_name="$1"
   if [[ -z "${!var_name:-}" ]]; then

@@ -147,6 +147,46 @@ EOF
   ! grep -qE 'deploy\.staffbase\.com/(repo|sha)"' "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
+@test "update_file writes annotations when INPUT_DEPLOYMENT_ANNOTATIONS is unset (default on)" {
+  unset INPUT_DEPLOYMENT_ANNOTATIONS
+  update_file "deployment.yaml" "spec.image" "$IMAGE"
+  grep -q 'deploy.staffbase.com/repositoryFullName' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "update_file skips annotations when INPUT_DEPLOYMENT_ANNOTATIONS is false" {
+  export INPUT_DEPLOYMENT_ANNOTATIONS="false"
+  update_file "deployment.yaml" "spec.image" "$IMAGE"
+  ! grep -q 'deploy.staffbase.com/' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "update_file still updates the image field when annotations are disabled" {
+  cat > "${TEST_TEMP_DIR}/mocks/yq" << 'YQ_MOCK'
+#!/usr/bin/env bash
+echo "yq $*" >> "${MOCK_CALLS_DIR}/yq_calls.log"
+if [[ "$*" == *"| type"* ]]; then echo "!!str"; fi
+exit 0
+YQ_MOCK
+  chmod +x "${TEST_TEMP_DIR}/mocks/yq"
+  export INPUT_DEPLOYMENT_ANNOTATIONS="false"
+  update_file "deployment.yaml" "spec.image" "$IMAGE"
+  grep -q "${IMAGE}" "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "update_file uses default deploy.staffbase.com domain when unset" {
+  unset INPUT_DEPLOYMENT_DOMAIN
+  update_file "deployment.yaml" "spec.image" "$IMAGE"
+  grep -q 'deploy.staffbase.com/repositoryFullName' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
+@test "update_file uses a custom INPUT_DEPLOYMENT_DOMAIN for annotation keys" {
+  export INPUT_DEPLOYMENT_DOMAIN="deploy.example.org"
+  update_file "deployment.yaml" "spec.image" "$IMAGE"
+  grep -q 'deploy.example.org/repositoryFullName' "${TEST_TEMP_DIR}/yq_calls.log"
+  grep -q 'deploy.example.org/commitSha' "${TEST_TEMP_DIR}/yq_calls.log"
+  grep -q 'deploy.example.org/version' "${TEST_TEMP_DIR}/yq_calls.log"
+  ! grep -q 'deploy.staffbase.com/' "${TEST_TEMP_DIR}/yq_calls.log"
+}
+
 # --- commit_changes ---
 
 @test "commit_changes commits and pushes when push is true" {
