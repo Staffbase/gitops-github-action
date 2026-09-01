@@ -161,7 +161,7 @@ runs:
     - name: Resolve Build Configuration
       id: build_config
       shell: bash
-      if: steps.preparation.outputs.build == 'true'
+      if: steps.preparation.outputs.build == 'true' && inputs.multiarch-mode != 'merge'
       env:
         RUNNER_ARCH: ${{ runner.arch }}
         INPUT_MULTIARCH_MODE: ${{ inputs.multiarch-mode }}
@@ -175,7 +175,7 @@ runs:
 
     - name: Verify Architecture Match
       shell: bash
-      if: steps.preparation.outputs.build == 'true'
+      if: steps.preparation.outputs.build == 'true' && inputs.multiarch-mode != 'merge'
       env:
         RUNNER_ARCH: ${{ runner.arch }}
         INPUT_DOCKER_BUILD_PLATFORMS: ${{ steps.build_config.outputs.platforms }}
