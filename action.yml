@@ -102,15 +102,6 @@ inputs:
   gitops-prod:
     description: 'Files which should be updated by the GitHub Action for PROD'
     required: false
-  upwind-client-id:
-    description: 'Upwind Client ID'
-    required: false
-  upwind-organization-id:
-    description: 'Upwind Organization ID'
-    required: false
-  upwind-client-secret:
-    description: 'Upwind Client Secret'
-    required: false
   working-directory:
     description: 'The path relative to the repo root dir in which the GitOps action should be executed.'
     required: false
@@ -231,19 +222,6 @@ runs:
         INPUT_DEPLOYMENT_ANNOTATIONS: ${{ inputs.deployment-annotations }}
         INPUT_DEPLOYMENT_DOMAIN: ${{ inputs.deployment-domain }}
       run: ${{ github.action_path }}/scripts/update-gitops.sh
-
-    - name: Emit Image Build Event to Upwind.io
-      env:
-        UPWIND_CLIENT_SECRET: ${{ inputs.upwind-client-secret }}
-      if: "${{ inputs.upwind-client-id != '' && env.UPWIND_CLIENT_SECRET != '' && inputs.upwind-organization-id != '' }}"
-      uses: upwindsecurity/create-image-build-event-action@3099fc1e1e002c6c2d7b7c635699944a708d260d # v3
-      continue-on-error: true
-      with:
-        image: ${{ inputs.docker-image }}
-        image_sha: ${{ steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
-        upwind_client_id: ${{ inputs.upwind-client-id }}
-        upwind_client_secret: ${{ env.UPWIND_CLIENT_SECRET }}
-        upwind_organization_id: ${{ inputs.upwind-organization-id }}
 
 branding:
   icon: 'git-merge'
