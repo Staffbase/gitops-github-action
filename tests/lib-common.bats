@@ -52,6 +52,14 @@ teardown() {
   assert_output_value "special" "hello=world,foo:bar"
 }
 
+@test "set_output uses the heredoc form for multi-line values" {
+  set_output "multiline" $'type=registry,push=true\ntype=local,dest=out'
+  run cat "$GITHUB_OUTPUT"
+  assert_line --index 0 --regexp '^multiline<<ghaEOF_[0-9]+$'
+  assert_line --index 1 "type=registry,push=true"
+  assert_line --index 2 "type=local,dest=out"
+}
+
 @test "set_output falls back to stdout when GITHUB_OUTPUT is unset" {
   unset GITHUB_OUTPUT
   run set_output "key" "value"

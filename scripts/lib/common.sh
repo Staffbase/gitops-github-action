@@ -24,7 +24,18 @@ set_output() {
   local name="$1"
   local value="$2"
   if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-    echo "${name}=${value}" >> "$GITHUB_OUTPUT"
+    if [[ "$value" == *$'\n'* ]]; then
+      # Multi-line values (e.g. a newline-separated docker-build-outputs list)
+      # must use the heredoc form; name=value is rejected by the runner.
+      local delimiter="ghaEOF_${RANDOM}${RANDOM}"
+      {
+        echo "${name}<<${delimiter}"
+        echo "$value"
+        echo "$delimiter"
+      } >> "$GITHUB_OUTPUT"
+    else
+      echo "${name}=${value}" >> "$GITHUB_OUTPUT"
+    fi
   else
     echo "OUTPUT ${name}=${value}"
   fi

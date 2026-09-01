@@ -58,6 +58,18 @@ inputs:
   docker-build-outputs:
     description: "Custom output destinations (e.g., type=registry,push=true,compression=zstd,force-compression=true). When set, this replaces the default push behavior - include push=true if pushing is desired."
     required: false
+  multiarch-mode:
+    description: "Multi-arch build mode. Empty (default) keeps the single-arch behaviour. 'build' builds only the runner's native platform and pushes it by digest — run it once per architecture in a job matrix. 'merge' combines those digests into one multi-arch image, applies the tags and runs the GitOps/Upwind steps. See README 'Multi-Arch Images'."
+    required: false
+    default: ''
+  multiarch-artifact-name:
+    description: "Base name of the artifact carrying the per-architecture digests between the build and merge jobs. The architecture is appended (e.g. docker-digests-arm64). Only needs changing when a workflow builds more than one image."
+    required: false
+    default: 'docker-digests'
+  multiarch-digests-path:
+    description: 'Directory holding the per-architecture digest files.'
+    required: false
+    default: '/tmp/gitops-action-digests'
   docker-disable-retagging:
     description: 'Disable retagging of existing images'
     required: false
@@ -122,7 +134,7 @@ outputs:
     value: ${{ steps.preparation.outputs.tag }}
   docker-digest:
     description: 'Docker digest'
-    value: ${{ steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
+    value: ${{ steps.docker_merge.outputs.digest || steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
 
 runs:
   using: "composite"
@@ -146,12 +158,27 @@ runs:
         INPUT_DEPLOYMENT_DOMAIN: ${{ inputs.deployment-domain }}
       run: ${{ github.action_path }}/scripts/generate-label-prefix.sh
 
-    - name: Verify Architecture Match
+    - name: Resolve Build Configuration
+      id: build_config
       shell: bash
-      if: steps.preparation.outputs.build == 'true'
+      if: steps.preparation.outputs.build == 'true' && inputs.multiarch-mode != 'merge'
       env:
         RUNNER_ARCH: ${{ runner.arch }}
+        INPUT_MULTIARCH_MODE: ${{ inputs.multiarch-mode }}
         INPUT_DOCKER_BUILD_PLATFORMS: ${{ inputs.docker-build-platforms }}
+        INPUT_DOCKER_BUILD_OUTPUTS: ${{ inputs.docker-build-outputs }}
+        INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
+        INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
+        INPUT_TAG_LIST: ${{ steps.preparation.outputs.tag_list }}
+        INPUT_PUSH: ${{ steps.preparation.outputs.push }}
+      run: ${{ github.action_path }}/scripts/resolve-build-config.sh
+
+    - name: Verify Architecture Match
+      shell: bash
+      if: steps.preparation.outputs.build == 'true' && inputs.multiarch-mode != 'merge'
+      env:
+        RUNNER_ARCH: ${{ runner.arch }}
+        INPUT_DOCKER_BUILD_PLATFORMS: ${{ steps.build_config.outputs.platforms }}
       run: ${{ github.action_path }}/scripts/verify-architecture.sh
 
     - name: Set up Docker Buildx
@@ -168,30 +195,69 @@ runs:
 
     - name: Build
       id: docker_build
-      if: steps.preparation.outputs.build == 'true' && inputs.docker-username != '' && inputs.docker-password != ''
+      if: steps.preparation.outputs.build == 'true' && inputs.multiarch-mode != 'merge' && inputs.docker-username != '' && inputs.docker-password != ''
       uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
       with:
         context: ${{ inputs.working-directory }}
-        push: ${{ inputs.docker-build-outputs == '' && steps.preparation.outputs.push || 'false' }}
+        push: ${{ steps.build_config.outputs.build_outputs == '' && steps.preparation.outputs.push || 'false' }}
         file: ${{ inputs.working-directory }}/${{ inputs.docker-file }}
         target: ${{ inputs.docker-build-target }}
         build-args: ${{ inputs.docker-build-args }}
-        tags: ${{ steps.preparation.outputs.tag_list }}
+        tags: ${{ steps.build_config.outputs.tags }}
         labels: |
           ${{ inputs.deployment-labels == 'true' && format('{0}.repositoryFullName={1}', steps.deployment_labels.outputs.label_prefix, github.repository) || '' }}
           ${{ inputs.deployment-labels == 'true' && format('{0}.commitSha={1}', steps.deployment_labels.outputs.label_prefix, github.sha) || '' }}
           ${{ inputs.deployment-labels == 'true' && format('{0}.version={1}', steps.deployment_labels.outputs.label_prefix, steps.preparation.outputs.gitops_tag) || '' }}
         secrets: ${{ inputs.docker-build-secrets }}
         secret-files: ${{ inputs.docker-build-secret-files }}
-        platforms: ${{ inputs.docker-build-platforms }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        platforms: ${{ steps.build_config.outputs.platforms }}
+        cache-from: type=gha${{ steps.build_config.outputs.cache_suffix }}
+        cache-to: type=gha,mode=max${{ steps.build_config.outputs.cache_suffix }}
         provenance: ${{ inputs.docker-build-provenance }}
-        outputs: ${{ inputs.docker-build-outputs }}
+        outputs: ${{ steps.build_config.outputs.build_outputs }}
+
+    - name: Export Digest
+      if: inputs.multiarch-mode == 'build' && steps.docker_build.outputs.digest != ''
+      shell: bash
+      env:
+        DIGEST: ${{ steps.docker_build.outputs.digest }}
+        DIGESTS_PATH: ${{ inputs.multiarch-digests-path }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$DIGESTS_PATH"
+        touch "${DIGESTS_PATH}/${DIGEST#sha256:}"
+
+    - name: Upload Digest
+      if: inputs.multiarch-mode == 'build' && steps.docker_build.outputs.digest != ''
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.multiarch-artifact-name }}-${{ steps.build_config.outputs.arch }}
+        path: ${{ inputs.multiarch-digests-path }}/*
+        if-no-files-found: error
+        retention-days: 1
+
+    - name: Download Digests
+      if: inputs.multiarch-mode == 'merge' && steps.preparation.outputs.build == 'true' && steps.preparation.outputs.push == 'true'
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        path: ${{ inputs.multiarch-digests-path }}
+        pattern: ${{ inputs.multiarch-artifact-name }}-*
+        merge-multiple: true
+
+    - name: Merge Multi-Arch Manifest
+      id: docker_merge
+      if: inputs.multiarch-mode == 'merge' && steps.preparation.outputs.build == 'true' && steps.preparation.outputs.push == 'true'
+      shell: bash
+      env:
+        INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
+        INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
+        INPUT_TAG_LIST: ${{ steps.preparation.outputs.tag_list }}
+        INPUT_DIGESTS_PATH: ${{ inputs.multiarch-digests-path }}
+      run: ${{ github.action_path }}/scripts/merge-manifests.sh
 
     - name: Retag Existing Image
       id: docker_retag
-      if: steps.preparation.outputs.build == 'false'
+      if: steps.preparation.outputs.build == 'false' && inputs.multiarch-mode != 'build'
       shell: bash
       env:
         INPUT_DOCKER_USERNAME: ${{ inputs.docker-username }}
@@ -203,7 +269,7 @@ runs:
       run: ${{ github.action_path }}/scripts/retag-image.sh
 
     - name: Checkout GitOps Repository
-      if: inputs.gitops-token != ''
+      if: inputs.gitops-token != '' && inputs.multiarch-mode != 'build'
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ inputs.gitops-organization }}/${{ inputs.gitops-repository }}
@@ -212,7 +278,7 @@ runs:
 
     - name: Update Docker Image in Repository
       id: update_image
-      if: inputs.gitops-token != ''
+      if: inputs.gitops-token != '' && inputs.multiarch-mode != 'build'
       working-directory: .github/${{ inputs.gitops-repository }}
       shell: bash
       env:
@@ -235,7 +301,7 @@ runs:
     - name: Emit Image Build Event to Upwind.io
       env:
         UPWIND_CLIENT_SECRET: ${{ inputs.upwind-client-secret }}
-      if: "${{ inputs.upwind-client-id != '' && env.UPWIND_CLIENT_SECRET != '' && inputs.upwind-organization-id != '' }}"
+      if: "${{ inputs.upwind-client-id != '' && env.UPWIND_CLIENT_SECRET != '' && inputs.upwind-organization-id != '' && inputs.multiarch-mode != 'build' }}"
       uses: upwindsecurity/create-image-build-event-action@3099fc1e1e002c6c2d7b7c635699944a708d260d # v3
       continue-on-error: true
       with:

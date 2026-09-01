@@ -130,6 +130,71 @@ Enabled by default (`deployment-labels: 'true'`). The same three values are stam
 
 > **Note:** labels are baked in at **build time**, so they are only applied on builds. Release (`v*`) and custom-tag runs that **retag** an existing image instead of rebuilding (see [Image tags](#image-tags--flux-image-automation)) do not get fresh labels — the retagged image keeps the labels from the branch build it was promoted from. This feature is independent of the annotations above; enable either, both, or neither.
 
+### Multi-Arch Images
+
+Our recovery/failover regions have no ARM capacity, so images deployed there must ship both `linux/amd64` and `linux/arm64`. The action never cross-compiles or emulates: each architecture is built natively on its own runner, and the results are combined into one manifest list afterwards.
+
+This needs a job matrix, which a composite action cannot create itself — so the fan-out lives in your workflow, and the action provides the two halves via `multiarch-mode`:
+
+- `multiarch-mode: build` — builds the runner's **native** platform (`docker-build-platforms` is ignored), pushes it **by digest only** (no tags), and uploads the digest as an artifact. GitOps, retagging and Upwind are skipped.
+- `multiarch-mode: merge` — downloads all digest artifacts, combines them into one multi-arch image, applies the real tags, and then runs the GitOps and Upwind steps exactly as a normal run would.
+
+```yaml
+name: CD
+
+on: [ push ]
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-24.04
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: GitOps (build and push by digest)
+        uses: Staffbase/gitops-github-action@v7.1
+        with:
+          multiarch-mode: build
+          docker-username: ${{ vars.HARBOR_USERNAME }}
+          docker-password: ${{ secrets.HARBOR_PASSWORD }}
+          docker-image: private/my-service
+
+  deploy:
+    name: Merge and Deploy
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: GitOps (merge manifests and deploy)
+        uses: Staffbase/gitops-github-action@v7.1
+        with:
+          multiarch-mode: merge
+          docker-username: ${{ vars.HARBOR_USERNAME }}
+          docker-password: ${{ secrets.HARBOR_PASSWORD }}
+          docker-image: private/my-service
+          gitops-token: ${{ secrets.GITOPS_TOKEN }}
+          gitops-dev: |-
+            clusters/customization/dev/mothership/my-service/my-service-helm.yaml spec.template.spec.containers.redbook.image
+```
+
+Pass the same `docker-*` inputs to both jobs — the merge job recomputes the tags, so `docker-custom-tag`, `docker-tag-timestamp` and friends must match. Notes:
+
+- On branches that do not push (e.g. feature branches), the build jobs just build and validate; the merge job finds nothing to merge and skips straight to the GitOps steps.
+- Release (`v*`) and custom-tag runs that retag an existing image do not rebuild, so they promote the existing multi-arch image untouched. Only the merge job performs the retag.
+- `docker-build-outputs` cannot be combined with `multiarch-mode: build`; the build already pushes by digest.
+- Building more than one image in a single workflow? Give each one a distinct `multiarch-artifact-name`, or the digests get mixed up.
+
 ## Inputs
 
 | Name                        | Description                                                                                                                    | Default                                              |
@@ -147,7 +212,10 @@ Enabled by default (`deployment-labels: 'true'`). The same three values are stam
 | `docker-build-secrets`      | List of secrets to expose to the build (e.g., key=string, GIT_AUTH_TOKEN=mytoken)                                              |                                                      |
 | `docker-build-secret-files` | List of secret files to expose to the build (e.g., key=filename, MY_SECRET=./secret.txt)                                       |                                                      |
 | `docker-build-target`       | Sets the target stage to build like: "runtime"                                                                                 |                                                      |
-| `docker-build-platforms`       | Sets the target platforms for build                                                                                 | linux/amd64 |
+| `docker-build-platforms`       | Sets the target platforms for build. Ignored when `multiarch-mode: build` (the runner's own architecture wins)                                | linux/amd64 |
+| `multiarch-mode`            | `build` or `merge` to build a multi-arch image from a job matrix, empty for a normal single-arch build. See [Multi-Arch Images](#multi-arch-images) |                                                      |
+| `multiarch-artifact-name`   | Base name of the artifact carrying the per-architecture digests between the build and merge jobs (the architecture is appended)               | `docker-digests`                                     |
+| `multiarch-digests-path`    | Directory holding the per-architecture digest files                                                                            | `/tmp/gitops-action-digests`                         |
 | `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `false`                                              |
 | `docker-disable-retagging`  | Disables retagging of existing images and run a new build instead                                                              | `false`                                              |
 | `deployment-annotations`    | Stamp deployment-tracking annotations (`deploy.staffbase.com/*`) onto updated GitOps manifests. See [Deployment tracking annotations](#deployment-tracking-annotations) | `true`                      |
