@@ -105,6 +105,9 @@ inputs:
   gitops-token:
     description: 'GitHub Token for GitOps'
     required: false
+  gitops-docker-image:
+    description: 'Image path written to the GitOps repository, when it differs from the one pushed to. Registries that separate publishing from consumption need this: Google Artifact Registry accepts a push only into a standard repository, while deployments should reference the virtual repository in front of it. Defaults to docker-image, which is the same path.'
+    required: false
   gitops-dev:
     description: 'Files which should be updated by the GitHub Action for DEV'
     required: false
@@ -283,7 +286,7 @@ runs:
       shell: bash
       env:
         INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
-        INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
+        INPUT_DOCKER_IMAGE: ${{ inputs.gitops-docker-image || inputs.docker-image }}
         INPUT_TAG: ${{ steps.preparation.outputs.gitops_tag }}
         INPUT_PUSH: ${{ steps.preparation.outputs.push }}
         INPUT_GITOPS_USER: ${{ inputs.gitops-user }}

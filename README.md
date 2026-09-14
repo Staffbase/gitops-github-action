@@ -106,6 +106,28 @@ jobs:
             clusters/customization/prod/mothership/my-service/my-service-helm.yaml spec.template.spec.containers.redbook.image
 ```
 
+### Publishing and consuming from different paths
+
+Some registries separate where an image is pushed from where it is pulled. Google Artifact Registry
+is one: a push is accepted only into a standard repository, while deployments should reference the
+virtual repository in front of it, so the upstream behind it can change without editing every
+manifest.
+
+`gitops-docker-image` writes a different path to the GitOps repository than the one built and
+pushed:
+
+```yaml
+        with:
+          docker-registry: europe-docker.pkg.dev
+          docker-image: my-project/images-publish/my-service
+          gitops-docker-image: my-project/images/my-service
+```
+
+It defaults to `docker-image`, so leaving it unset keeps both paths the same.
+
+Only the GitOps commit is affected. The build, the push and the release retag all use
+`docker-image`, because they act on the repository that actually stores the image.
+
 ### Deployment tracking annotations
 
 By default (`deployment-annotations: 'true'`), whenever the action updates a GitOps file it stamps the following annotations onto the manifest's `metadata.annotations`:
@@ -226,6 +248,7 @@ Pass the same `docker-*` inputs to both jobs — the merge job recomputes the ta
 | `gitops-user`               | GitHub User for GitOps                                                                                                         | `Staffbot`                                           |
 | `gitops-email`              | GitHub Email for GitOps                                                                                                        | `staffbot@staffbase.com`                             |
 | `gitops-token`              | GitHub Token for GitOps                                                                                                        |                                                      |
+| `gitops-docker-image`       | Image path written to the GitOps repository, when it differs from the one pushed to. See [Publishing and consuming from different paths](#publishing-and-consuming-from-different-paths) | `docker-image` |
 | `gitops-dev`                | Files which should be updated by the GitHub Action for DEV, must be relative to the root of the GitOps repository              |                                                      |
 | `gitops-stage`              | Files which should be updated by the GitHub Action for STAGE, must be relative to the root of the GitOps repository            |                                                      |
 | `gitops-prod`               | Files which should be updated by the GitHub Action for PROD, must be relative to the root of the GitOps repository             |                                                      |
