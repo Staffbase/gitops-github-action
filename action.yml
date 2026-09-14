@@ -31,6 +31,12 @@ inputs:
   docker-password:
     description: 'Password for the Docker Registry'
     required: false
+  gcp-workload-identity-provider:
+    description: 'Full resource name of the Workload Identity Provider used to authenticate to Google Cloud, e.g. projects/123456789/locations/global/workloadIdentityPools/github/providers/github. Set together with gcp-service-account to push to Artifact Registry without a long-lived key, in place of docker-username / docker-password. The calling job must grant `permissions: id-token: write` — a composite action cannot request that for itself.'
+    required: false
+  gcp-service-account:
+    description: 'Email of the Google service account to impersonate through Workload Identity Federation. Required together with gcp-workload-identity-provider; setting one without the other fails the run.'
+    required: false
   docker-file:
     description: 'Path of the Dockerfile. Should be relative to input.working-directory'
     required: true
@@ -181,21 +187,45 @@ runs:
         INPUT_DOCKER_BUILD_PLATFORMS: ${{ steps.build_config.outputs.platforms }}
       run: ${{ github.action_path }}/scripts/verify-architecture.sh
 
+    - name: Authenticate to Google Cloud
+      id: gcp_auth
+      if: inputs.gcp-workload-identity-provider != '' && inputs.gcp-service-account != ''
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+      with:
+        workload_identity_provider: ${{ inputs.gcp-workload-identity-provider }}
+        service_account: ${{ inputs.gcp-service-account }}
+        token_format: access_token
+
+    - name: Resolve Registry Auth
+      id: registry_auth
+      shell: bash
+      env:
+        INPUT_GCP_ACCESS_TOKEN: ${{ steps.gcp_auth.outputs.access_token }}
+        INPUT_GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.gcp-workload-identity-provider }}
+        INPUT_GCP_SERVICE_ACCOUNT: ${{ inputs.gcp-service-account }}
+        INPUT_DOCKER_USERNAME: ${{ inputs.docker-username }}
+        INPUT_DOCKER_PASSWORD: ${{ inputs.docker-password }}
+      run: ${{ github.action_path }}/scripts/resolve-registry-auth.sh
+
     - name: Set up Docker Buildx
-      if: inputs.docker-username != '' && inputs.docker-password != ''
+      if: steps.registry_auth.outputs.authenticated == 'true'
       uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
+    # A Google access token authenticates as the fixed user "oauth2accesstoken";
+    # anything else is the docker-username / docker-password pair. Both halves are
+    # selected here rather than in the script above, because a password belongs in
+    # neither a step output nor the environment file.
     - name: Login to Registry
-      if: inputs.docker-username != '' && inputs.docker-password != ''
+      if: steps.registry_auth.outputs.authenticated == 'true'
       uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
       with:
         registry: ${{ inputs.docker-registry }}
-        username: ${{ inputs.docker-username }}
-        password: ${{ inputs.docker-password }}
+        username: ${{ steps.gcp_auth.outputs.access_token != '' && 'oauth2accesstoken' || inputs.docker-username }}
+        password: ${{ steps.gcp_auth.outputs.access_token || inputs.docker-password }}
 
     - name: Build
       id: docker_build
-      if: steps.preparation.outputs.build == 'true' && inputs.multiarch-mode != 'merge' && inputs.docker-username != '' && inputs.docker-password != ''
+      if: steps.preparation.outputs.build == 'true' && inputs.multiarch-mode != 'merge' && steps.registry_auth.outputs.authenticated == 'true'
       uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
       with:
         context: ${{ inputs.working-directory }}
@@ -260,8 +290,8 @@ runs:
       if: steps.preparation.outputs.build == 'false' && inputs.multiarch-mode != 'build'
       shell: bash
       env:
-        INPUT_DOCKER_USERNAME: ${{ inputs.docker-username }}
-        INPUT_DOCKER_PASSWORD: ${{ inputs.docker-password }}
+        INPUT_DOCKER_USERNAME: ${{ steps.gcp_auth.outputs.access_token != '' && 'oauth2accesstoken' || inputs.docker-username }}
+        INPUT_DOCKER_PASSWORD: ${{ steps.gcp_auth.outputs.access_token || inputs.docker-password }}
         INPUT_DOCKER_REGISTRY_API: ${{ inputs.docker-registry-api }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG: ${{ steps.preparation.outputs.tag }}

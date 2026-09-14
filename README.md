@@ -106,6 +106,58 @@ jobs:
             clusters/customization/prod/mothership/my-service/my-service-helm.yaml spec.template.spec.containers.redbook.image
 ```
 
+### Authenticating to a registry
+
+The action reaches the registry in one of two ways, and picks between them on its own.
+
+**Username and password.** Pass `docker-username` and `docker-password`. This is how Harbor is
+reached.
+
+**Workload Identity Federation.** Pass `gcp-workload-identity-provider` and `gcp-service-account`
+instead. The action exchanges the job's OIDC token for a short-lived Google access token and logs
+in with it, so no long-lived key is stored anywhere. Google Artifact Registry accepts that token as
+a basic-auth password under the fixed username `oauth2accesstoken`, which is what makes the retag
+step work unchanged against the registry v2 API.
+
+```yaml
+jobs:
+  ci-cd:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write        # required — see below
+    steps:
+      - uses: actions/checkout@v6
+      - uses: Staffbase/gitops-github-action@v8
+        with:
+          docker-registry: europe-docker.pkg.dev
+          docker-image: my-project/my-repo/my-service
+          gcp-workload-identity-provider: projects/123456789/locations/global/workloadIdentityPools/github/providers/github
+          gcp-service-account: ci-push@my-project.iam.gserviceaccount.com
+```
+
+> **The calling job must grant `permissions: id-token: write`.** A composite action cannot request
+> a permission for itself, and `id-token` is never granted by default — not even when a repository's
+> default token permissions are set to permissive. A reusable workflow cannot grant it either: a
+> called workflow's permissions can only narrow what the caller already has. Without it,
+> authentication fails before the build starts.
+
+When a Google access token is available it wins over `docker-username` / `docker-password`, so a
+repository can be switched over by adding the GCP inputs without first removing the old pair.
+
+**Half-configured credentials fail the run.** A username with no password, or a WIF provider with no
+service account, are what a mistyped secret name looks like, and the old behaviour — skip the build, carry on green — is how a deployment quietly goes stale. Those
+now stop the run with an error naming the missing half.
+
+Supplying *no* credentials at all stays a warning rather than an error, because it is the documented
+[deploy-only](#deploy-docker-image) configuration: the build and push steps are skipped and only the
+GitOps update runs.
+
+Both GCP inputs are deliberately left without a default. This action is public and is used outside
+Staffbase, and a default would make every caller attempt Google authentication — failing any job
+that has not yet added the `id-token` permission. Staffbase-wide defaults belong one layer up, in
+the `gha-workflows` templates.
+
 ### Deployment tracking annotations
 
 By default (`deployment-annotations: 'true'`), whenever the action updates a GitOps file it stamps the following annotations onto the manifest's `metadata.annotations`:
@@ -207,6 +259,8 @@ Pass the same `docker-*` inputs to both jobs — the merge job recomputes the ta
 | `docker-tag-keep-v-prefix`  | Keep the leading `v` on release (`v*`) tags (`v1.2.3` → `v1.2.3`). Default strips it (`v1.2.3` → `1.2.3`) | `false`                                           |
 | `docker-username`           | Username for the Docker Registry                                                                                               |                                                      |
 | `docker-password`           | Password for the Docker Registry                                                                                               |                                                      |
+| `gcp-workload-identity-provider` | Full resource name of the Workload Identity Provider to authenticate to Google Cloud with. Set together with `gcp-service-account` to reach Artifact Registry without a long-lived key. See [Authenticating to a registry](#authenticating-to-a-registry) |                                 |
+| `gcp-service-account`       | Google service account to impersonate through Workload Identity Federation. Required together with `gcp-workload-identity-provider` |                                      |
 | `docker-file`               | Dockerfile                                                                                                                     | `./Dockerfile`                                       |
 | `docker-build-args`         | List of build-time variables                                                                                                   |                                                      |
 | `docker-build-secrets`      | List of secrets to expose to the build (e.g., key=string, GIT_AUTH_TOKEN=mytoken)                                              |                                                      |
