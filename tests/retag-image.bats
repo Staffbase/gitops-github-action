@@ -7,6 +7,7 @@ SCRIPT="${BATS_TEST_DIRNAME}/../scripts/retag-image.sh"
 setup() {
   setup_common
   export GITHUB_SHA="abcdef1234567890"
+  export INPUT_DOCKER_REGISTRIES="registry.example.com"
   export INPUT_DOCKER_USERNAME="user"
   export INPUT_DOCKER_PASSWORD="pass"
   export INPUT_DOCKER_REGISTRY_API="https://registry.example.com/v2/"
@@ -88,4 +89,43 @@ MOCK_EOF
   run "$SCRIPT"
   assert_failure
   assert_output --partial "INPUT_DOCKER_IMAGE"
+}
+
+@test "fails when INPUT_DOCKER_REGISTRIES is missing" {
+  unset INPUT_DOCKER_REGISTRIES
+  run "$SCRIPT"
+  assert_failure
+  assert_output --partial "INPUT_DOCKER_REGISTRIES"
+}
+
+# --- multi-registry replication ---
+
+create_docker_mock() {
+  cat > "${TEST_TEMP_DIR}/mocks/docker" << MOCK_EOF
+#!/usr/bin/env bash
+echo "docker \$*" >> "${TEST_TEMP_DIR}/docker_calls.log"
+MOCK_EOF
+  chmod +x "${TEST_TEMP_DIR}/mocks/docker"
+}
+
+@test "replicates release and latest tags to additional registries" {
+  create_curl_mock "found"
+  create_docker_mock
+  export INPUT_DOCKER_REGISTRIES=$'registry.example.com|user|pass\nother.example.com|user2|pass2'
+
+  run "$SCRIPT"
+  assert_success
+
+  run cat "${TEST_TEMP_DIR}/docker_calls.log"
+  assert_output --partial "buildx imagetools create --tag other.example.com/my-service:1.0.0 --tag other.example.com/my-service:latest registry.example.com/my-service@sha256:abc123def456"
+}
+
+@test "does not call docker when only a single registry is configured" {
+  create_curl_mock "found"
+  create_docker_mock
+
+  run "$SCRIPT"
+  assert_success
+  run test -f "${TEST_TEMP_DIR}/docker_calls.log"
+  assert_failure
 }

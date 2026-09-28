@@ -195,11 +195,31 @@ Pass the same `docker-*` inputs to both jobs — the merge job recomputes the ta
 - `docker-build-outputs` cannot be combined with `multiarch-mode: build`; the build already pushes by digest.
 - Building more than one image in a single workflow? Give each one a distinct `multiarch-artifact-name`, or the digests get mixed up.
 
+### Multiple Registries
+
+`docker-registries` takes either a single registry (the default, `registry.staffbase.com`) or a newline-separated list of registries to migrate between without losing the ability to roll back. Every build, merge and retag pushes to all of them; GitOps manifests and release-retag lookups always use the **first** entry (the primary registry).
+
+```yaml
+- name: GitOps
+  uses: Staffbase/gitops-github-action@v7.1
+  with:
+    docker-registries: |-
+      registry.staffbase.com|${{ vars.HARBOR_USERNAME }}|${{ secrets.HARBOR_PASSWORD }}
+      europe-docker.pkg.dev|${{ vars.GAR_USERNAME }}|${{ secrets.GAR_PASSWORD }}
+    docker-image: private/my-service
+    gitops-token: ${{ secrets.GITOPS_TOKEN }}
+```
+
+Notes:
+
+- Each line is `registry[|username[|password]]`. Omitting the username/password on a line falls back to the top-level `docker-username`/`docker-password`.
+- To roll back, drop the extra registry from the list (or reorder to make a different one primary) — no rebuild needed, since the primary registry's images are untouched.
+
 ## Inputs
 
 | Name                        | Description                                                                                                                    | Default                                              |
 |-----------------------------|--------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
-| `docker-registry`           | Docker Registry                                                                                                                | `registry.staffbase.com`                                 |
+| `docker-registries`         | Docker Registry, or a newline-separated list of `registry[\|username[\|password]]` entries to push to more than one, for migrating between registries. See [Multiple Registries](#multiple-registries) | `registry.staffbase.com` |
 | `docker-registry-api`       | Docker Registry API (used for retagging without pulling)                                                                       | `https://registry.staffbase.com/v2/` |
 | `docker-image`              | Docker Image                                                                                                                   |                                                      |
 | `docker-custom-tag`         | Docker Custom Tag to be set on the image                                                                                       |                                                      |

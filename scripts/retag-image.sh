@@ -1,18 +1,28 @@
 #!/usr/bin/env bash
 # Retags an existing Docker image in the registry without rebuilding.
-# Polls for an existing master-/main- tagged image and retags it with the release tag.
+# Polls for an existing master-/main- tagged image on the primary registry and
+# retags it with the release tag, then replicates that tag onto every
+# additional registry (see lib/registries.sh) via `docker buildx imagetools
+# create` — unlike the raw manifest API below, that works regardless of the
+# target registry's auth scheme (basic auth, OAuth2 bearer token, ...), since
+# it reuses whatever `docker login` already set up.
 #
-# Required env vars: GITHUB_SHA, INPUT_DOCKER_USERNAME, INPUT_DOCKER_PASSWORD,
-#                    INPUT_DOCKER_REGISTRY_API, INPUT_DOCKER_IMAGE, INPUT_TAG, INPUT_LATEST
-# Optional env vars: RETAG_TIMEOUT_SECONDS (default: 300), RETAG_POLL_INTERVAL (default: 10)
+# Required env vars: GITHUB_SHA, INPUT_DOCKER_REGISTRIES, INPUT_DOCKER_USERNAME,
+#                    INPUT_DOCKER_PASSWORD, INPUT_DOCKER_REGISTRY_API,
+#                    INPUT_DOCKER_IMAGE, INPUT_TAG, INPUT_LATEST
+# Optional env vars: RETAG_TIMEOUT_SECONDS (default: 300),
+#                    RETAG_POLL_INTERVAL (default: 10)
 #
 # Outputs (via GITHUB_OUTPUT): digest
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/registries.sh
+source "${SCRIPT_DIR}/lib/registries.sh"
 
 require_env GITHUB_SHA
+require_env INPUT_DOCKER_REGISTRIES
 require_env INPUT_DOCKER_USERNAME
 require_env INPUT_DOCKER_PASSWORD
 require_env INPUT_DOCKER_REGISTRY_API
@@ -83,5 +93,20 @@ echo "Using Content-Type: ${DETECTED_CONTENT_TYPE}"
 
 retag_manifest "$INPUT_TAG" "$MANIFEST" "$DETECTED_CONTENT_TYPE"
 retag_manifest "$INPUT_LATEST" "$MANIFEST" "$DETECTED_CONTENT_TYPE"
+
+resolve_registries
+if [[ ${#REGISTRIES[@]} -gt 1 ]]; then
+  require_tool docker
+  PRIMARY_REGISTRY="$(registry_field "${REGISTRIES[0]}" 1)"
+  SOURCE_REF="${PRIMARY_REGISTRY}/${INPUT_DOCKER_IMAGE}@${DIGEST}"
+  for entry in "${REGISTRIES[@]:1}"; do
+    registry="$(registry_field "$entry" 1)"
+    echo "Replicating ${INPUT_DOCKER_IMAGE}:${INPUT_TAG} to ${registry}"
+    docker buildx imagetools create \
+      --tag "${registry}/${INPUT_DOCKER_IMAGE}:${INPUT_TAG}" \
+      --tag "${registry}/${INPUT_DOCKER_IMAGE}:${INPUT_LATEST}" \
+      "$SOURCE_REF"
+  done
+fi
 
 set_output "digest" "$DIGEST"

@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
 # Generates Docker image tags based on the current Git ref.
 #
-# Required env vars: GITHUB_REF, GITHUB_SHA, INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE
+# Required env vars: GITHUB_REF, GITHUB_SHA, INPUT_DOCKER_REGISTRIES, INPUT_DOCKER_IMAGE
 # Optional env vars: INPUT_DOCKER_CUSTOM_TAG, INPUT_DOCKER_DISABLE_RETAGGING,
 #                    INPUT_DOCKER_TAG_TIMESTAMP, INPUT_DOCKER_TAG_KEEP_V_PREFIX
 #
-# Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list
+# Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list, gitops_tag, primary_registry
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/registries.sh
+source "${SCRIPT_DIR}/lib/registries.sh"
 
 require_env GITHUB_REF
 require_env GITHUB_SHA
-require_env INPUT_DOCKER_REGISTRY
+require_env INPUT_DOCKER_REGISTRIES
 require_env INPUT_DOCKER_IMAGE
+
+resolve_registries
+PRIMARY_REGISTRY="$(registry_field "${REGISTRIES[0]}" 1)"
 
 BUILD="true"
 # ALIAS_TAG is an additional immutable tag pushed alongside TAG (see set_branch_tags).
@@ -87,13 +92,21 @@ else
   LATEST=""
 fi
 
-TAG_LIST="${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${TAG}"
-if [[ -n "${ALIAS_TAG:-}" ]]; then
-  TAG_LIST+=",${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${ALIAS_TAG}"
-fi
-if [[ -n "${LATEST:-}" ]]; then
-  TAG_LIST+=",${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${LATEST}"
-fi
+# TAG_LIST is the cross product of every configured registry (see
+# lib/registries.sh) and every tag this build gets, so a single build-push
+# invocation pushes to all of them at once.
+TAG_LIST=""
+for registry_entry in "${REGISTRIES[@]}"; do
+  registry_ref="$(registry_field "$registry_entry" 1)/${INPUT_DOCKER_IMAGE}"
+  [[ -n "$TAG_LIST" ]] && TAG_LIST+=","
+  TAG_LIST+="${registry_ref}:${TAG}"
+  if [[ -n "${ALIAS_TAG:-}" ]]; then
+    TAG_LIST+=",${registry_ref}:${ALIAS_TAG}"
+  fi
+  if [[ -n "${LATEST:-}" ]]; then
+    TAG_LIST+=",${registry_ref}:${LATEST}"
+  fi
+done
 
 # GITOPS_TAG is the tag written to the external GitOps repo. It is always the
 # non-timestamped tag: the stable <prefix>-<short-sha> alias for branch builds
@@ -111,3 +124,4 @@ set_output "push" "$PUSH"
 set_output "tag" "$TAG"
 set_output "tag_list" "$TAG_LIST"
 set_output "gitops_tag" "$GITOPS_TAG"
+set_output "primary_registry" "$PRIMARY_REGISTRY"
