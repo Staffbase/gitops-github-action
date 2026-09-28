@@ -26,6 +26,10 @@ for entry in "${REGISTRIES[@]}"; do
     continue
   fi
 
-  echo "Logging in to ${registry}"
-  echo "$password" | docker login "$registry" --username "$username" --password-stdin
+  # A registry entry may carry a path prefix after the host (e.g. GAR's
+  # project/repository, baked in so it ends up in the pushed image ref).
+  # `docker login` only accepts the host.
+  host="${registry%%/*}"
+  echo "Logging in to ${host}"
+  echo "$password" | docker login "$host" --username "$username" --password-stdin
 done

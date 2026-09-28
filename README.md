@@ -213,6 +213,7 @@ Pass the same `docker-*` inputs to both jobs — the merge job recomputes the ta
 Notes:
 
 - Each line is `registry[|username[|password]]`. Omitting the username/password on a line falls back to the top-level `docker-username`/`docker-password`.
+- The registry part can carry a path prefix after the host (e.g. `europe-docker.pkg.dev/staffbase-artifacts/images-publish`) when a registry addresses a project/repository as part of the push path. Login always uses just the host; the full value is used to build the pushed image ref.
 - To roll back, drop the extra registry from the list (or reorder to make a different one primary) — no rebuild needed, since the primary registry's images are untouched.
 
 ## Inputs
