@@ -440,12 +440,12 @@ teardown() {
   assert_output_value "primary_registry_api" "https://other.example.com/v2/"
 }
 
-@test "primary_registry_api strips a path prefix from the primary entry's host" {
+@test "primary_registry_api keeps the primary entry's path prefix after /v2/" {
   export GITHUB_REF="refs/heads/main"
   export INPUT_DOCKER_REGISTRIES="europe-docker.pkg.dev/staffbase-artifacts/images-publish|user|pass"
   run "$SCRIPT"
   assert_success
-  assert_output_value "primary_registry_api" "https://europe-docker.pkg.dev/v2/"
+  assert_output_value "primary_registry_api" "https://europe-docker.pkg.dev/v2/staffbase-artifacts/images-publish/"
 }
 
 # --- multi-registry tag_list (cross product) ---

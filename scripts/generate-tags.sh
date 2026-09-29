@@ -21,12 +21,17 @@ require_env INPUT_DOCKER_IMAGE
 
 resolve_registries
 PRIMARY_REGISTRY="$(registry_field "${REGISTRIES[0]}" 1)"
-# Standard Docker Registry HTTP API v2 form, derived from the primary's bare
-# host (stripping any path prefix, same as the login step). Used as the
-# default for docker-registry-api, so reordering docker-registries to change
-# the primary also moves where release-retag looks without a second input to
-# keep in sync.
-PRIMARY_REGISTRY_API="https://${PRIMARY_REGISTRY%%/*}/v2/"
+# Standard Docker Registry HTTP API v2 form: the literal /v2/ segment sits
+# right after the bare host, with any path prefix (e.g. GAR's
+# project/repository) carried after it, since that prefix is part of the
+# <name> component the manifest API addresses — retag-image.sh appends only
+# INPUT_DOCKER_IMAGE after this, so dropping the prefix here would 404 against
+# a project/repository-scoped registry. Used as the default for
+# docker-registry-api, so reordering docker-registries to change the primary
+# also moves where release-retag looks without a second input to keep in sync.
+PRIMARY_REGISTRY_HOST="${PRIMARY_REGISTRY%%/*}"
+PRIMARY_REGISTRY_PATH="${PRIMARY_REGISTRY#"$PRIMARY_REGISTRY_HOST"}"
+PRIMARY_REGISTRY_API="https://${PRIMARY_REGISTRY_HOST}/v2${PRIMARY_REGISTRY_PATH}/"
 
 # HAS_CREDENTIALS is true when every configured registry resolved a username
 # and password (its own, or the top-level fallback). Steps further down the
