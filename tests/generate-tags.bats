@@ -358,7 +358,7 @@ teardown() {
 
 # --- primary_registry ---
 
-@test "primary_registry equals docker-registry when docker-registries is unset" {
+@test "primary_registry equals the docker-registries default value" {
   export GITHUB_REF="refs/heads/main"
   run "$SCRIPT"
   assert_success
