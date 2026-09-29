@@ -8,9 +8,9 @@ inputs:
     required: true
     default: 'registry.staffbase.com'
   docker-registry-api:
-    description: 'Docker Registry API'
+    description: 'Docker Registry API used for release-retag manifest lookups. Defaults to the standard v2 API form of the primary docker-registries entry''s host (https://<host>/v2/); set explicitly only for a non-standard endpoint.'
     required: false
-    default: 'https://registry.staffbase.com/v2/'
+    default: ''
   docker-image:
     description: 'Docker Image'
     required: true
@@ -148,6 +148,8 @@ runs:
         INPUT_DOCKER_TAG_KEEP_V_PREFIX: ${{ inputs.docker-tag-keep-v-prefix }}
         INPUT_DOCKER_DISABLE_RETAGGING: ${{ inputs.docker-disable-retagging }}
         INPUT_DOCKER_REGISTRIES: ${{ inputs.docker-registries }}
+        INPUT_DOCKER_USERNAME: ${{ inputs.docker-username }}
+        INPUT_DOCKER_PASSWORD: ${{ inputs.docker-password }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
       run: ${{ github.action_path }}/scripts/generate-tags.sh
 
@@ -264,7 +266,7 @@ runs:
         INPUT_DOCKER_REGISTRIES: ${{ inputs.docker-registries }}
         INPUT_DOCKER_USERNAME: ${{ inputs.docker-username }}
         INPUT_DOCKER_PASSWORD: ${{ inputs.docker-password }}
-        INPUT_DOCKER_REGISTRY_API: ${{ inputs.docker-registry-api }}
+        INPUT_DOCKER_REGISTRY_API: ${{ inputs.docker-registry-api != '' && inputs.docker-registry-api || steps.preparation.outputs.primary_registry_api }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG: ${{ steps.preparation.outputs.tag }}
         INPUT_LATEST: ${{ steps.preparation.outputs.latest }}

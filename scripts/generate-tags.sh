@@ -5,7 +5,8 @@
 # Optional env vars: INPUT_DOCKER_CUSTOM_TAG, INPUT_DOCKER_DISABLE_RETAGGING,
 #                    INPUT_DOCKER_TAG_TIMESTAMP, INPUT_DOCKER_TAG_KEEP_V_PREFIX
 #
-# Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list, gitops_tag, primary_registry, has_credentials
+# Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list, gitops_tag,
+#                    primary_registry, primary_registry_api, has_credentials
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
@@ -20,19 +21,39 @@ require_env INPUT_DOCKER_IMAGE
 
 resolve_registries
 PRIMARY_REGISTRY="$(registry_field "${REGISTRIES[0]}" 1)"
+# Standard Docker Registry HTTP API v2 form, derived from the primary's bare
+# host (stripping any path prefix, same as the login step). Used as the
+# default for docker-registry-api, so reordering docker-registries to change
+# the primary also moves where release-retag looks without a second input to
+# keep in sync.
+PRIMARY_REGISTRY_API="https://${PRIMARY_REGISTRY%%/*}/v2/"
 
-# HAS_CREDENTIALS is true when at least one configured registry resolved a
-# username and password (its own, or the top-level fallback). Steps further
-# down the action (buildx setup, login, build) gate on this instead of the
-# raw top-level docker-username/docker-password, since docker-registries lets
-# every entry carry its own, fully independent credentials.
-HAS_CREDENTIALS="false"
+# HAS_CREDENTIALS is true when every configured registry resolved a username
+# and password (its own, or the top-level fallback). Steps further down the
+# action (buildx setup, login, build) gate on this instead of the raw
+# top-level docker-username/docker-password, since docker-registries lets
+# every entry carry its own, fully independent credentials. A registry list
+# with some entries credentialed and others not is a misconfiguration, not a
+# valid "skip push" state — it would otherwise let buildx attempt an
+# unauthenticated push to whichever entries login-registries.sh skipped, so
+# it fails fast instead.
+CONFIGURED_CREDENTIALS=0
+MISSING_CREDENTIALS=()
 for registry_entry in "${REGISTRIES[@]}"; do
   if [[ -n "$(registry_field "$registry_entry" 2)" && -n "$(registry_field "$registry_entry" 3)" ]]; then
-    HAS_CREDENTIALS="true"
-    break
+    CONFIGURED_CREDENTIALS=$((CONFIGURED_CREDENTIALS + 1))
+  else
+    MISSING_CREDENTIALS+=("$(registry_field "$registry_entry" 1)")
   fi
 done
+
+if [[ $CONFIGURED_CREDENTIALS -gt 0 && ${#MISSING_CREDENTIALS[@]} -gt 0 ]]; then
+  log_error "docker-registries has credentials for some registries but not: ${MISSING_CREDENTIALS[*]}. Give every registry its own username/password, or a top-level docker-username/docker-password fallback."
+  exit 1
+fi
+
+HAS_CREDENTIALS="false"
+[[ $CONFIGURED_CREDENTIALS -gt 0 ]] && HAS_CREDENTIALS="true"
 
 BUILD="true"
 # ALIAS_TAG is an additional immutable tag pushed alongside TAG (see set_branch_tags).
@@ -138,4 +159,5 @@ set_output "tag" "$TAG"
 set_output "tag_list" "$TAG_LIST"
 set_output "gitops_tag" "$GITOPS_TAG"
 set_output "primary_registry" "$PRIMARY_REGISTRY"
+set_output "primary_registry_api" "$PRIMARY_REGISTRY_API"
 set_output "has_credentials" "$HAS_CREDENTIALS"

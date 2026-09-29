@@ -8,10 +8,9 @@
 # lookups. A missing username/password on a line falls back to the global
 # INPUT_DOCKER_USERNAME/INPUT_DOCKER_PASSWORD.
 #
-# action.yml always populates INPUT_DOCKER_REGISTRIES (synthesizing a single
-# entry from docker-registry/docker-username/docker-password when
-# docker-registries is not set), so callers only ever deal with this one
-# variable.
+# action.yml declares docker-registries as its only registry input (default
+# 'registry.staffbase.com'), so INPUT_DOCKER_REGISTRIES is always populated —
+# callers only ever deal with this one variable.
 #
 # Required env vars: INPUT_DOCKER_REGISTRIES
 # Optional env vars: INPUT_DOCKER_USERNAME, INPUT_DOCKER_PASSWORD

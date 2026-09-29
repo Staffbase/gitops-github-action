@@ -407,6 +407,47 @@ teardown() {
   assert_output_value "has_credentials" "false"
 }
 
+@test "has_credentials is true when every multi-registry entry has its own credentials" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_REGISTRIES=$'registry.staffbase.com|user1|pass1\nother.example.com|user2|pass2'
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "has_credentials" "true"
+}
+
+@test "fails when some multi-registry entries have credentials and others don't" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_REGISTRIES=$'registry.staffbase.com|user1|pass1\nother.example.com'
+  run "$SCRIPT"
+  assert_failure
+  assert_output --partial "other.example.com"
+}
+
+# --- primary_registry_api ---
+
+@test "primary_registry_api derives the standard v2 form from docker-registries' default" {
+  export GITHUB_REF="refs/heads/main"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "primary_registry_api" "https://registry.staffbase.com/v2/"
+}
+
+@test "primary_registry_api derives from the first multi-registry entry" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_REGISTRIES=$'other.example.com|user1|pass1\nregistry.staffbase.com|user2|pass2'
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "primary_registry_api" "https://other.example.com/v2/"
+}
+
+@test "primary_registry_api strips a path prefix from the primary entry's host" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_REGISTRIES="europe-docker.pkg.dev/staffbase-artifacts/images-publish|user|pass"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "primary_registry_api" "https://europe-docker.pkg.dev/v2/"
+}
+
 # --- multi-registry tag_list (cross product) ---
 
 @test "tag_list is the cross product of every registry and tag when docker-registries is set" {
