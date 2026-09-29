@@ -8,7 +8,7 @@ inputs:
     required: true
     default: 'registry.staffbase.com'
   docker-registry-api:
-    description: 'Docker Registry API used for release-retag manifest lookups. Defaults to the standard v2 API form of the primary docker-registries entry''s host (https://<host>/v2/); set explicitly only for a non-standard endpoint.'
+    description: 'Docker Registry API used for release-retag manifest lookups. Defaults to the standard v2 API form of the primary docker-registries entry''s host, preserving its path prefix if it has one (https://<host>/v2/ or https://<host>/v2/<path>/); set explicitly only for a non-standard endpoint.'
     required: false
     default: ''
   docker-image:
