@@ -4,6 +4,8 @@ load 'test_helper/setup'
 
 setup() {
   setup_common
+  # shellcheck source=../scripts/lib/common.sh
+  source "${BATS_TEST_DIRNAME}/../scripts/lib/common.sh"
   # shellcheck source=../scripts/lib/registries.sh
   source "${BATS_TEST_DIRNAME}/../scripts/lib/registries.sh"
 }
@@ -71,4 +73,13 @@ teardown() {
   resolve_registries
 
   [ "${#REGISTRIES[@]}" -eq 2 ]
+}
+
+@test "fails with a clear error when INPUT_DOCKER_REGISTRIES is only blank lines" {
+  export INPUT_DOCKER_REGISTRIES=$'\n\n'
+
+  run resolve_registries
+
+  assert_failure
+  assert_output --partial "no registry entries"
 }

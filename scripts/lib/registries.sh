@@ -31,6 +31,11 @@ resolve_registries() {
     password="${password#|}"
     REGISTRIES+=("${registry}"$'\t'"${username:-${INPUT_DOCKER_USERNAME:-}}"$'\t'"${password:-${INPUT_DOCKER_PASSWORD:-}}")
   done <<< "${INPUT_DOCKER_REGISTRIES}"
+
+  if [[ ${#REGISTRIES[@]} -eq 0 ]]; then
+    log_error "INPUT_DOCKER_REGISTRIES contained no registry entries (only blank lines)"
+    return 1
+  fi
 }
 
 # registry_field extracts one column (1=registry, 2=username, 3=password) from
