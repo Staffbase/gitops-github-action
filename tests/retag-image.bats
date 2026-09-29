@@ -65,6 +65,9 @@ MOCK_EOF
   assert_output --partial "Image found for"
   assert_output --partial "Retagging image"
   assert_output_value "digest" "sha256:abc123def456"
+
+  run cat "${TEST_TEMP_DIR}/curl_calls.log"
+  assert_output --partial "-u user:pass"
 }
 
 @test "retag fails when image is never found within timeout" {
@@ -75,13 +78,26 @@ MOCK_EOF
   assert_output --partial "within 2 seconds"
 }
 
+@test "authenticates with the primary registry's own inline credentials when top-level ones are unset" {
+  unset INPUT_DOCKER_USERNAME INPUT_DOCKER_PASSWORD
+  export INPUT_DOCKER_REGISTRIES="registry.example.com|inline-user|inline-pass"
+  create_curl_mock "found"
+
+  run "$SCRIPT"
+  assert_success
+
+  run cat "${TEST_TEMP_DIR}/curl_calls.log"
+  assert_output --partial "-u inline-user:inline-pass"
+  refute_output --partial "-u user:pass"
+}
+
 # --- validation ---
 
-@test "fails when INPUT_DOCKER_USERNAME is missing" {
-  unset INPUT_DOCKER_USERNAME
+@test "fails when the primary registry has no credentials configured" {
+  unset INPUT_DOCKER_USERNAME INPUT_DOCKER_PASSWORD
   run "$SCRIPT"
   assert_failure
-  assert_output --partial "INPUT_DOCKER_USERNAME"
+  assert_output --partial "No credentials configured for the primary registry"
 }
 
 @test "fails when INPUT_DOCKER_IMAGE is missing" {

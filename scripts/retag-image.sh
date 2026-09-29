@@ -7,10 +7,11 @@
 # target registry's auth scheme (basic auth, OAuth2 bearer token, ...), since
 # it reuses whatever `docker login` already set up.
 #
-# Required env vars: GITHUB_SHA, INPUT_DOCKER_REGISTRIES, INPUT_DOCKER_USERNAME,
-#                    INPUT_DOCKER_PASSWORD, INPUT_DOCKER_REGISTRY_API,
-#                    INPUT_DOCKER_IMAGE, INPUT_TAG, INPUT_LATEST
-# Optional env vars: RETAG_TIMEOUT_SECONDS (default: 300),
+# Required env vars: GITHUB_SHA, INPUT_DOCKER_REGISTRIES,
+#                    INPUT_DOCKER_REGISTRY_API, INPUT_DOCKER_IMAGE, INPUT_TAG,
+#                    INPUT_LATEST
+# Optional env vars: INPUT_DOCKER_USERNAME, INPUT_DOCKER_PASSWORD,
+#                    RETAG_TIMEOUT_SECONDS (default: 300),
 #                    RETAG_POLL_INTERVAL (default: 10)
 #
 # Outputs (via GITHUB_OUTPUT): digest
@@ -23,12 +24,22 @@ source "${SCRIPT_DIR}/lib/registries.sh"
 
 require_env GITHUB_SHA
 require_env INPUT_DOCKER_REGISTRIES
-require_env INPUT_DOCKER_USERNAME
-require_env INPUT_DOCKER_PASSWORD
 require_env INPUT_DOCKER_REGISTRY_API
 require_env INPUT_DOCKER_IMAGE
 require_env INPUT_TAG
 require_env INPUT_LATEST
+
+# The manifest API talks to the primary registry (INPUT_DOCKER_REGISTRY_API),
+# so it authenticates with the primary entry's own resolved credentials, not
+# the raw top-level ones — a registry can supply its credentials entirely
+# inline in INPUT_DOCKER_REGISTRIES (e.g. GAR's oauth2accesstoken).
+resolve_registries
+PRIMARY_USERNAME="$(registry_field "${REGISTRIES[0]}" 2)"
+PRIMARY_PASSWORD="$(registry_field "${REGISTRIES[0]}" 3)"
+if [[ -z "$PRIMARY_USERNAME" || -z "$PRIMARY_PASSWORD" ]]; then
+  log_error "No credentials configured for the primary registry ($(registry_field "${REGISTRIES[0]}" 1))"
+  exit 1
+fi
 
 TIMEOUT="${RETAG_TIMEOUT_SECONDS:-300}"
 POLL_INTERVAL="${RETAG_POLL_INTERVAL:-10}"
@@ -45,7 +56,7 @@ retag_manifest() {
   local content_type="$3"
   curl --fail-with-body -X PUT \
     -H "Content-Type: ${content_type}" \
-    -u "${INPUT_DOCKER_USERNAME}:${INPUT_DOCKER_PASSWORD}" \
+    -u "${PRIMARY_USERNAME}:${PRIMARY_PASSWORD}" \
     -d "${manifest}" \
     "${INPUT_DOCKER_REGISTRY_API}${INPUT_DOCKER_IMAGE}/manifests/${target_tag}"
 }
@@ -64,7 +75,7 @@ while [ $SECONDS -lt $end ]; do
   for tag in $CHECK_EXISTING_TAGS; do
     MANIFEST=$(curl -s -D headers.txt \
       -H "Accept: ${ACCEPT_HEADER}" \
-      -u "${INPUT_DOCKER_USERNAME}:${INPUT_DOCKER_PASSWORD}" \
+      -u "${PRIMARY_USERNAME}:${PRIMARY_PASSWORD}" \
       "${INPUT_DOCKER_REGISTRY_API}${INPUT_DOCKER_IMAGE}/manifests/${tag}")
 
     if [[ $MANIFEST == *"errors"* ]]; then
@@ -94,7 +105,6 @@ echo "Using Content-Type: ${DETECTED_CONTENT_TYPE}"
 retag_manifest "$INPUT_TAG" "$MANIFEST" "$DETECTED_CONTENT_TYPE"
 retag_manifest "$INPUT_LATEST" "$MANIFEST" "$DETECTED_CONTENT_TYPE"
 
-resolve_registries
 if [[ ${#REGISTRIES[@]} -gt 1 ]]; then
   require_tool docker
   PRIMARY_REGISTRY="$(registry_field "${REGISTRIES[0]}" 1)"

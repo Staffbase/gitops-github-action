@@ -5,7 +5,7 @@
 # Optional env vars: INPUT_DOCKER_CUSTOM_TAG, INPUT_DOCKER_DISABLE_RETAGGING,
 #                    INPUT_DOCKER_TAG_TIMESTAMP, INPUT_DOCKER_TAG_KEEP_V_PREFIX
 #
-# Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list, gitops_tag, primary_registry
+# Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list, gitops_tag, primary_registry, has_credentials
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
@@ -20,6 +20,19 @@ require_env INPUT_DOCKER_IMAGE
 
 resolve_registries
 PRIMARY_REGISTRY="$(registry_field "${REGISTRIES[0]}" 1)"
+
+# HAS_CREDENTIALS is true when at least one configured registry resolved a
+# username and password (its own, or the top-level fallback). Steps further
+# down the action (buildx setup, login, build) gate on this instead of the
+# raw top-level docker-username/docker-password, since docker-registries lets
+# every entry carry its own, fully independent credentials.
+HAS_CREDENTIALS="false"
+for registry_entry in "${REGISTRIES[@]}"; do
+  if [[ -n "$(registry_field "$registry_entry" 2)" && -n "$(registry_field "$registry_entry" 3)" ]]; then
+    HAS_CREDENTIALS="true"
+    break
+  fi
+done
 
 BUILD="true"
 # ALIAS_TAG is an additional immutable tag pushed alongside TAG (see set_branch_tags).
@@ -125,3 +138,4 @@ set_output "tag" "$TAG"
 set_output "tag_list" "$TAG_LIST"
 set_output "gitops_tag" "$GITOPS_TAG"
 set_output "primary_registry" "$PRIMARY_REGISTRY"
+set_output "has_credentials" "$HAS_CREDENTIALS"

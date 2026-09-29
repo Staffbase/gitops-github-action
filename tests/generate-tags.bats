@@ -373,6 +373,40 @@ teardown() {
   assert_output_value "primary_registry" "registry.staffbase.com"
 }
 
+# --- has_credentials ---
+
+@test "has_credentials is false when nothing supplies a username or password" {
+  export GITHUB_REF="refs/heads/main"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "has_credentials" "false"
+}
+
+@test "has_credentials is true when the top-level username/password are set" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_USERNAME="user"
+  export INPUT_DOCKER_PASSWORD="pass"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "has_credentials" "true"
+}
+
+@test "has_credentials is true when only an entry's own inline credentials are set" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_REGISTRIES="registry.staffbase.com|inline-user|inline-pass"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "has_credentials" "true"
+}
+
+@test "has_credentials is false when a docker-registries entry has no credentials anywhere" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_REGISTRIES="registry.staffbase.com"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "has_credentials" "false"
+}
+
 # --- multi-registry tag_list (cross product) ---
 
 @test "tag_list is the cross product of every registry and tag when docker-registries is set" {
