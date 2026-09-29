@@ -205,7 +205,7 @@ Pass the same `docker-*` inputs to both jobs — the merge job recomputes the ta
   with:
     docker-registries: |-
       registry.staffbase.com|${{ vars.HARBOR_USERNAME }}|${{ secrets.HARBOR_PASSWORD }}
-      europe-docker.pkg.dev|${{ vars.GAR_USERNAME }}|${{ secrets.GAR_PASSWORD }}
+      europe-docker.pkg.dev|oauth2accesstoken|${{ steps.gar.outputs.access-token }}
     docker-image: private/my-service
     gitops-token: ${{ secrets.GITOPS_TOKEN }}
 ```
@@ -214,6 +214,8 @@ Notes:
 
 - Each line is `registry[|username[|password]]`. Omitting the username/password on a line falls back to the top-level `docker-username`/`docker-password`.
 - The registry part can carry a path prefix after the host (e.g. `europe-docker.pkg.dev/staffbase-artifacts/images-publish`) when a registry addresses a project/repository as part of the push path. Login always uses just the host; the full value is used to build the pushed image ref.
+- Two entries sharing a host must use identical credentials — Docker's own credential store is keyed by host alone, so conflicting credentials on the same host fail fast at login instead of silently overwriting each other.
+- A username of `oauth2accesstoken` (Google Artifact/Container Registry's convention for "this password is an OAuth2 access token") authenticates release-retag's manifest lookups with a Bearer token instead of HTTP Basic, since that's what GAR's registry API requires.
 - To roll back, drop the extra registry from the list (or reorder to make a different one primary) — no rebuild needed, since the primary registry's images are untouched.
 
 ## Inputs

@@ -91,6 +91,20 @@ MOCK_EOF
   refute_output --partial "-u user:pass"
 }
 
+@test "authenticates with a Bearer token instead of Basic auth when the primary username is oauth2accesstoken" {
+  unset INPUT_DOCKER_USERNAME INPUT_DOCKER_PASSWORD
+  export INPUT_DOCKER_REGISTRIES="europe-docker.pkg.dev|oauth2accesstoken|gar-token-123"
+  export INPUT_DOCKER_REGISTRY_API="https://europe-docker.pkg.dev/v2/"
+  create_curl_mock "found"
+
+  run "$SCRIPT"
+  assert_success
+
+  run cat "${TEST_TEMP_DIR}/curl_calls.log"
+  assert_output --partial "Authorization: Bearer gar-token-123"
+  refute_output --partial "-u oauth2accesstoken:gar-token-123"
+}
+
 # --- validation ---
 
 @test "fails when the primary registry has no credentials configured" {

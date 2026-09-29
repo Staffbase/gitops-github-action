@@ -41,6 +41,17 @@ if [[ -z "$PRIMARY_USERNAME" || -z "$PRIMARY_PASSWORD" ]]; then
   exit 1
 fi
 
+# "oauth2accesstoken" is the fixed username Google Artifact/Container Registry
+# uses to mean "the password is actually an OAuth2 access token" — the same
+# convention `docker login`/`gcloud auth configure-docker` use. Their raw
+# registry API only accepts that token as a Bearer header, unlike Harbor's
+# manifest endpoints, which accept HTTP Basic directly.
+if [[ "$PRIMARY_USERNAME" == "oauth2accesstoken" ]]; then
+  AUTH_ARGS=(-H "Authorization: Bearer ${PRIMARY_PASSWORD}")
+else
+  AUTH_ARGS=(-u "${PRIMARY_USERNAME}:${PRIMARY_PASSWORD}")
+fi
+
 TIMEOUT="${RETAG_TIMEOUT_SECONDS:-300}"
 POLL_INTERVAL="${RETAG_POLL_INTERVAL:-10}"
 
@@ -56,7 +67,7 @@ retag_manifest() {
   local content_type="$3"
   curl --fail-with-body -X PUT \
     -H "Content-Type: ${content_type}" \
-    -u "${PRIMARY_USERNAME}:${PRIMARY_PASSWORD}" \
+    "${AUTH_ARGS[@]}" \
     -d "${manifest}" \
     "${INPUT_DOCKER_REGISTRY_API}${INPUT_DOCKER_IMAGE}/manifests/${target_tag}"
 }
@@ -75,7 +86,7 @@ while [ $SECONDS -lt $end ]; do
   for tag in $CHECK_EXISTING_TAGS; do
     MANIFEST=$(curl -s -D headers.txt \
       -H "Accept: ${ACCEPT_HEADER}" \
-      -u "${PRIMARY_USERNAME}:${PRIMARY_PASSWORD}" \
+      "${AUTH_ARGS[@]}" \
       "${INPUT_DOCKER_REGISTRY_API}${INPUT_DOCKER_IMAGE}/manifests/${tag}")
 
     if [[ $MANIFEST == *"errors"* ]]; then

@@ -62,3 +62,21 @@ docker_calls() {
   assert_failure
   assert_output --partial "INPUT_DOCKER_REGISTRIES"
 }
+
+@test "logs in once when two entries share a host with matching credentials" {
+  export INPUT_DOCKER_REGISTRIES=$'registry.example.com/project-a|user|pass\nregistry.example.com/project-b|user|pass'
+  run "$SCRIPT"
+  assert_success
+  assert_output --partial "already logged in to 'registry.example.com'"
+  run docker_calls
+  local login_count
+  login_count=$(grep -c "login registry.example.com" <<< "$output")
+  [ "$login_count" -eq 1 ]
+}
+
+@test "fails when two entries share a host with different credentials" {
+  export INPUT_DOCKER_REGISTRIES=$'registry.example.com/project-a|user-a|pass-a\nregistry.example.com/project-b|user-b|pass-b'
+  run "$SCRIPT"
+  assert_failure
+  assert_output --partial "different credentials"
+}

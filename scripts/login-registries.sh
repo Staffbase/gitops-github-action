@@ -16,6 +16,7 @@ require_env INPUT_DOCKER_REGISTRIES
 require_tool docker
 
 resolve_registries
+declare -A seen_username seen_password
 for entry in "${REGISTRIES[@]}"; do
   registry="$(registry_field "$entry" 1)"
   username="$(registry_field "$entry" 2)"
@@ -30,6 +31,21 @@ for entry in "${REGISTRIES[@]}"; do
   # project/repository, baked in so it ends up in the pushed image ref).
   # `docker login` only accepts the host.
   host="${registry%%/*}"
+
+  # Docker's credential store is keyed by host alone, so two entries sharing
+  # a host but carrying different credentials would silently overwrite each
+  # other — whichever logs in last wins for every entry on that host.
+  if [[ -n "${seen_username[$host]+set}" ]]; then
+    if [[ "${seen_username[$host]}" != "$username" || "${seen_password[$host]}" != "$password" ]]; then
+      log_error "Multiple docker-registries entries use host '${host}' with different credentials. Docker's credential store is keyed by host, so only one set of credentials can be active for it — use the same credentials for every entry on that host."
+      exit 1
+    fi
+    log_info "Skipping login for '${registry}': already logged in to '${host}'."
+    continue
+  fi
+  seen_username[$host]="$username"
+  seen_password[$host]="$password"
+
   echo "Logging in to ${host}"
   echo "$password" | docker login "$host" --username "$username" --password-stdin
 done
