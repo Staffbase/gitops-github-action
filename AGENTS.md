@@ -33,7 +33,7 @@ Step flow in `action.yml`:
 2. `resolve-build-config.sh` / `verify-architecture.sh` — platforms, cache scope and outputs, incl. multi-arch handling.
 3. `login-registries.sh` → `docker/build-push-action`.
 4. Multi-arch (`multiarch-mode`): `build` jobs push by digest and upload digest artifacts; one `merge` job runs `merge-manifests.sh` and then does the GitOps/Upwind steps. `build` mode skips all GitOps steps.
-5. `retag-image.sh` (release/custom tag path) — polls the primary registry's v2 manifest API for the `main-`/`master-<sha8>` image, retags it, then replicates to additional registries with `docker buildx imagetools create`.
+5. `retag-image.sh` (release/custom tag path) — polls the primary registry's v2 manifest API for the `main-<sha8>`/`master-<sha8>` image, retags it, then replicates to additional registries with `docker buildx imagetools create`.
 6. `update-gitops.sh` — checks out the GitOps repo and edits YAML with `yq`. Environment by ref: `main`/`master` → `gitops-stage`, `dev` → `gitops-dev`, tags → `gitops-prod`; any other ref simulates the dev update without committing. Each input line is `<file> <yq-path>`; a path ending in `.tag` or pointing at a map with `tag`/`repository` gets only the tag, otherwise the full image reference. Also stamps `<deployment-domain>/…` annotations. Commit + push retries with backoff.
 
 Shared libs in `scripts/lib/` (sourced, never executed):
