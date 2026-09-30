@@ -7,6 +7,7 @@ SCRIPT="${BATS_TEST_DIRNAME}/../scripts/retag-image.sh"
 setup() {
   setup_common
   export GITHUB_SHA="abcdef1234567890"
+  export INPUT_DOCKER_REGISTRIES="registry.example.com"
   export INPUT_DOCKER_USERNAME="user"
   export INPUT_DOCKER_PASSWORD="pass"
   export INPUT_DOCKER_REGISTRY_API="https://registry.example.com/v2/"
@@ -64,6 +65,9 @@ MOCK_EOF
   assert_output --partial "Image found for"
   assert_output --partial "Retagging image"
   assert_output_value "digest" "sha256:abc123def456"
+
+  run cat "${TEST_TEMP_DIR}/curl_calls.log"
+  assert_output --partial "-u user:pass"
 }
 
 @test "retag fails when image is never found within timeout" {
@@ -74,13 +78,40 @@ MOCK_EOF
   assert_output --partial "within 2 seconds"
 }
 
+@test "authenticates with the primary registry's own inline credentials when top-level ones are unset" {
+  unset INPUT_DOCKER_USERNAME INPUT_DOCKER_PASSWORD
+  export INPUT_DOCKER_REGISTRIES="registry.example.com|inline-user|inline-pass"
+  create_curl_mock "found"
+
+  run "$SCRIPT"
+  assert_success
+
+  run cat "${TEST_TEMP_DIR}/curl_calls.log"
+  assert_output --partial "-u inline-user:inline-pass"
+  refute_output --partial "-u user:pass"
+}
+
+@test "authenticates with a Bearer token instead of Basic auth when the primary username is oauth2accesstoken" {
+  unset INPUT_DOCKER_USERNAME INPUT_DOCKER_PASSWORD
+  export INPUT_DOCKER_REGISTRIES="europe-docker.pkg.dev|oauth2accesstoken|gar-token-123"
+  export INPUT_DOCKER_REGISTRY_API="https://europe-docker.pkg.dev/v2/"
+  create_curl_mock "found"
+
+  run "$SCRIPT"
+  assert_success
+
+  run cat "${TEST_TEMP_DIR}/curl_calls.log"
+  assert_output --partial "Authorization: Bearer gar-token-123"
+  refute_output --partial "-u oauth2accesstoken:gar-token-123"
+}
+
 # --- validation ---
 
-@test "fails when INPUT_DOCKER_USERNAME is missing" {
-  unset INPUT_DOCKER_USERNAME
+@test "fails when the primary registry has no credentials configured" {
+  unset INPUT_DOCKER_USERNAME INPUT_DOCKER_PASSWORD
   run "$SCRIPT"
   assert_failure
-  assert_output --partial "INPUT_DOCKER_USERNAME"
+  assert_output --partial "No credentials configured for the primary registry"
 }
 
 @test "fails when INPUT_DOCKER_IMAGE is missing" {
@@ -88,4 +119,43 @@ MOCK_EOF
   run "$SCRIPT"
   assert_failure
   assert_output --partial "INPUT_DOCKER_IMAGE"
+}
+
+@test "fails when INPUT_DOCKER_REGISTRIES is missing" {
+  unset INPUT_DOCKER_REGISTRIES
+  run "$SCRIPT"
+  assert_failure
+  assert_output --partial "INPUT_DOCKER_REGISTRIES"
+}
+
+# --- multi-registry replication ---
+
+create_docker_mock() {
+  cat > "${TEST_TEMP_DIR}/mocks/docker" << MOCK_EOF
+#!/usr/bin/env bash
+echo "docker \$*" >> "${TEST_TEMP_DIR}/docker_calls.log"
+MOCK_EOF
+  chmod +x "${TEST_TEMP_DIR}/mocks/docker"
+}
+
+@test "replicates release and latest tags to additional registries" {
+  create_curl_mock "found"
+  create_docker_mock
+  export INPUT_DOCKER_REGISTRIES=$'registry.example.com|user|pass\nother.example.com|user2|pass2'
+
+  run "$SCRIPT"
+  assert_success
+
+  run cat "${TEST_TEMP_DIR}/docker_calls.log"
+  assert_output --partial "buildx imagetools create --tag other.example.com/my-service:1.0.0 --tag other.example.com/my-service:latest registry.example.com/my-service@sha256:abc123def456"
+}
+
+@test "does not call docker when only a single registry is configured" {
+  create_curl_mock "found"
+  create_docker_mock
+
+  run "$SCRIPT"
+  assert_success
+  run test -f "${TEST_TEMP_DIR}/docker_calls.log"
+  assert_failure
 }

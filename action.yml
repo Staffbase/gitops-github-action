@@ -3,14 +3,14 @@ description: 'Build and push the Docker image and commits the new version to you
 author: 'Staffbase SE'
 
 inputs:
-  docker-registry:
-    description: 'Docker Registry'
+  docker-registries:
+    description: 'Docker Registry, or a newline-separated list of "registry[|username[|password]]" entries to push to more than one (for migrating between registries). The first entry is the primary registry, used for GitOps manifest updates and release-retag lookups. A missing username/password on a line falls back to docker-username/docker-password.'
     required: true
     default: 'registry.staffbase.com'
   docker-registry-api:
-    description: 'Docker Registry API'
+    description: 'Docker Registry API used for release-retag manifest lookups. Defaults to the standard v2 API form of the primary docker-registries entry''s host, preserving its path prefix if it has one (https://<host>/v2/ or https://<host>/v2/<path>/); set explicitly only for a non-standard endpoint.'
     required: false
-    default: 'https://registry.staffbase.com/v2/'
+    default: ''
   docker-image:
     description: 'Docker Image'
     required: true
@@ -147,7 +147,9 @@ runs:
         INPUT_DOCKER_TAG_TIMESTAMP: ${{ inputs.docker-tag-timestamp }}
         INPUT_DOCKER_TAG_KEEP_V_PREFIX: ${{ inputs.docker-tag-keep-v-prefix }}
         INPUT_DOCKER_DISABLE_RETAGGING: ${{ inputs.docker-disable-retagging }}
-        INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
+        INPUT_DOCKER_REGISTRIES: ${{ inputs.docker-registries }}
+        INPUT_DOCKER_USERNAME: ${{ inputs.docker-username }}
+        INPUT_DOCKER_PASSWORD: ${{ inputs.docker-password }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
       run: ${{ github.action_path }}/scripts/generate-tags.sh
 
@@ -167,7 +169,7 @@ runs:
         INPUT_MULTIARCH_MODE: ${{ inputs.multiarch-mode }}
         INPUT_DOCKER_BUILD_PLATFORMS: ${{ inputs.docker-build-platforms }}
         INPUT_DOCKER_BUILD_OUTPUTS: ${{ inputs.docker-build-outputs }}
-        INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
+        INPUT_DOCKER_REGISTRY: ${{ steps.preparation.outputs.primary_registry }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG_LIST: ${{ steps.preparation.outputs.tag_list }}
         INPUT_PUSH: ${{ steps.preparation.outputs.push }}
@@ -182,20 +184,21 @@ runs:
       run: ${{ github.action_path }}/scripts/verify-architecture.sh
 
     - name: Set up Docker Buildx
-      if: inputs.docker-username != '' && inputs.docker-password != ''
+      if: steps.preparation.outputs.has_credentials == 'true'
       uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
-    - name: Login to Registry
-      if: inputs.docker-username != '' && inputs.docker-password != ''
-      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-      with:
-        registry: ${{ inputs.docker-registry }}
-        username: ${{ inputs.docker-username }}
-        password: ${{ inputs.docker-password }}
+    - name: Login to Registries
+      if: steps.preparation.outputs.has_credentials == 'true'
+      shell: bash
+      env:
+        INPUT_DOCKER_REGISTRIES: ${{ inputs.docker-registries }}
+        INPUT_DOCKER_USERNAME: ${{ inputs.docker-username }}
+        INPUT_DOCKER_PASSWORD: ${{ inputs.docker-password }}
+      run: ${{ github.action_path }}/scripts/login-registries.sh
 
     - name: Build
       id: docker_build
-      if: steps.preparation.outputs.build == 'true' && inputs.multiarch-mode != 'merge' && inputs.docker-username != '' && inputs.docker-password != ''
+      if: steps.preparation.outputs.build == 'true' && inputs.multiarch-mode != 'merge' && steps.preparation.outputs.has_credentials == 'true'
       uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
       with:
         context: ${{ inputs.working-directory }}
@@ -249,7 +252,7 @@ runs:
       if: inputs.multiarch-mode == 'merge' && steps.preparation.outputs.build == 'true' && steps.preparation.outputs.push == 'true'
       shell: bash
       env:
-        INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
+        INPUT_DOCKER_REGISTRY: ${{ steps.preparation.outputs.primary_registry }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG_LIST: ${{ steps.preparation.outputs.tag_list }}
         INPUT_DIGESTS_PATH: ${{ inputs.multiarch-digests-path }}
@@ -260,9 +263,10 @@ runs:
       if: steps.preparation.outputs.build == 'false' && inputs.multiarch-mode != 'build'
       shell: bash
       env:
+        INPUT_DOCKER_REGISTRIES: ${{ inputs.docker-registries }}
         INPUT_DOCKER_USERNAME: ${{ inputs.docker-username }}
         INPUT_DOCKER_PASSWORD: ${{ inputs.docker-password }}
-        INPUT_DOCKER_REGISTRY_API: ${{ inputs.docker-registry-api }}
+        INPUT_DOCKER_REGISTRY_API: ${{ inputs.docker-registry-api != '' && inputs.docker-registry-api || steps.preparation.outputs.primary_registry_api }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG: ${{ steps.preparation.outputs.tag }}
         INPUT_LATEST: ${{ steps.preparation.outputs.latest }}
@@ -282,7 +286,7 @@ runs:
       working-directory: .github/${{ inputs.gitops-repository }}
       shell: bash
       env:
-        INPUT_DOCKER_REGISTRY: ${{ inputs.docker-registry }}
+        INPUT_DOCKER_REGISTRY: ${{ steps.preparation.outputs.primary_registry }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG: ${{ steps.preparation.outputs.gitops_tag }}
         INPUT_PUSH: ${{ steps.preparation.outputs.push }}

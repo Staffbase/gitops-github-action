@@ -1,20 +1,64 @@
 #!/usr/bin/env bash
 # Generates Docker image tags based on the current Git ref.
 #
-# Required env vars: GITHUB_REF, GITHUB_SHA, INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE
+# Required env vars: GITHUB_REF, GITHUB_SHA, INPUT_DOCKER_REGISTRIES, INPUT_DOCKER_IMAGE
 # Optional env vars: INPUT_DOCKER_CUSTOM_TAG, INPUT_DOCKER_DISABLE_RETAGGING,
 #                    INPUT_DOCKER_TAG_TIMESTAMP, INPUT_DOCKER_TAG_KEEP_V_PREFIX
 #
-# Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list
+# Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list, gitops_tag,
+#                    primary_registry, primary_registry_api, has_credentials
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/registries.sh
+source "${SCRIPT_DIR}/lib/registries.sh"
 
 require_env GITHUB_REF
 require_env GITHUB_SHA
-require_env INPUT_DOCKER_REGISTRY
+require_env INPUT_DOCKER_REGISTRIES
 require_env INPUT_DOCKER_IMAGE
+
+resolve_registries
+PRIMARY_REGISTRY="$(registry_field "${REGISTRIES[0]}" 1)"
+# Standard Docker Registry HTTP API v2 form: the literal /v2/ segment sits
+# right after the bare host, with any path prefix (e.g. GAR's
+# project/repository) carried after it, since that prefix is part of the
+# <name> component the manifest API addresses — retag-image.sh appends only
+# INPUT_DOCKER_IMAGE after this, so dropping the prefix here would 404 against
+# a project/repository-scoped registry. Used as the default for
+# docker-registry-api, so reordering docker-registries to change the primary
+# also moves where release-retag looks without a second input to keep in sync.
+PRIMARY_REGISTRY_HOST="${PRIMARY_REGISTRY%%/*}"
+PRIMARY_REGISTRY_PATH="${PRIMARY_REGISTRY#"$PRIMARY_REGISTRY_HOST"}"
+PRIMARY_REGISTRY_API="https://${PRIMARY_REGISTRY_HOST}/v2${PRIMARY_REGISTRY_PATH}/"
+
+# HAS_CREDENTIALS is true when every configured registry resolved a username
+# and password (its own, or the top-level fallback). Steps further down the
+# action (buildx setup, login, build) gate on this instead of the raw
+# top-level docker-username/docker-password, since docker-registries lets
+# every entry carry its own, fully independent credentials. A registry list
+# with some entries credentialed and others not is a misconfiguration, not a
+# valid "skip push" state — it would otherwise let buildx attempt an
+# unauthenticated push to whichever entries login-registries.sh skipped, so
+# it fails fast instead.
+CONFIGURED_CREDENTIALS=0
+MISSING_CREDENTIALS=()
+for registry_entry in "${REGISTRIES[@]}"; do
+  if [[ -n "$(registry_field "$registry_entry" 2)" && -n "$(registry_field "$registry_entry" 3)" ]]; then
+    CONFIGURED_CREDENTIALS=$((CONFIGURED_CREDENTIALS + 1))
+  else
+    MISSING_CREDENTIALS+=("$(registry_field "$registry_entry" 1)")
+  fi
+done
+
+if [[ $CONFIGURED_CREDENTIALS -gt 0 && ${#MISSING_CREDENTIALS[@]} -gt 0 ]]; then
+  log_error "docker-registries has credentials for some registries but not: ${MISSING_CREDENTIALS[*]}. Give every registry its own username/password, or a top-level docker-username/docker-password fallback."
+  exit 1
+fi
+
+HAS_CREDENTIALS="false"
+[[ $CONFIGURED_CREDENTIALS -gt 0 ]] && HAS_CREDENTIALS="true"
 
 BUILD="true"
 # ALIAS_TAG is an additional immutable tag pushed alongside TAG (see set_branch_tags).
@@ -87,13 +131,21 @@ else
   LATEST=""
 fi
 
-TAG_LIST="${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${TAG}"
-if [[ -n "${ALIAS_TAG:-}" ]]; then
-  TAG_LIST+=",${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${ALIAS_TAG}"
-fi
-if [[ -n "${LATEST:-}" ]]; then
-  TAG_LIST+=",${INPUT_DOCKER_REGISTRY}/${INPUT_DOCKER_IMAGE}:${LATEST}"
-fi
+# TAG_LIST is the cross product of every configured registry (see
+# lib/registries.sh) and every tag this build gets, so a single build-push
+# invocation pushes to all of them at once.
+TAG_LIST=""
+for registry_entry in "${REGISTRIES[@]}"; do
+  registry_ref="$(registry_field "$registry_entry" 1)/${INPUT_DOCKER_IMAGE}"
+  [[ -n "$TAG_LIST" ]] && TAG_LIST+=","
+  TAG_LIST+="${registry_ref}:${TAG}"
+  if [[ -n "${ALIAS_TAG:-}" ]]; then
+    TAG_LIST+=",${registry_ref}:${ALIAS_TAG}"
+  fi
+  if [[ -n "${LATEST:-}" ]]; then
+    TAG_LIST+=",${registry_ref}:${LATEST}"
+  fi
+done
 
 # GITOPS_TAG is the tag written to the external GitOps repo. It is always the
 # non-timestamped tag: the stable <prefix>-<short-sha> alias for branch builds
@@ -111,3 +163,6 @@ set_output "push" "$PUSH"
 set_output "tag" "$TAG"
 set_output "tag_list" "$TAG_LIST"
 set_output "gitops_tag" "$GITOPS_TAG"
+set_output "primary_registry" "$PRIMARY_REGISTRY"
+set_output "primary_registry_api" "$PRIMARY_REGISTRY_API"
+set_output "has_credentials" "$HAS_CREDENTIALS"
