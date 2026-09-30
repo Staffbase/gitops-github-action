@@ -25,13 +25,15 @@ The `docker-registry` input was renamed to `docker-registries` to support [pushi
 Rename it in your workflow; the value stays the same:
 
 ```diff
- - uses: Staffbase/gitops-github-action@v9
+-- uses: Staffbase/gitops-github-action@v8
++- uses: Staffbase/gitops-github-action@v9
    with:
 -    docker-registry: registry.example.com
 +    docker-registries: registry.example.com
 ```
 
-Workflows that never set `docker-registry` (and so used the default `registry.staffbase.com`) need no change.
+Workflows that never set `docker-registry` (and so used the default `registry.staffbase.com`) need no input changes;
+only bump the action reference to `@v9`.
 
 `docker-registry-api` no longer defaults to `https://registry.staffbase.com/v2/`. It is now derived from the first
 `docker-registries` entry, so a custom registry no longer needs a matching `docker-registry-api`. An explicitly set
