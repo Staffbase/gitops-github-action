@@ -2,32 +2,41 @@ name-template: "Release v$RESOLVED_VERSION"
 tag-template: "v$RESOLVED_VERSION"
 categories:
   - title: "🚀 Features"
-    labels:
-      - "feature"
-      - "enhancement"
+    when:
+      labels:
+        - "feature"
+        - "enhancement"
   - title: "🐛 Bug Fixes"
-    labels:
-      - "fix"
-      - "bugfix"
-      - "bug"
+    when:
+      labels:
+        - "fix"
+        - "bugfix"
+        - "bug"
   - title: "🧹 Maintenance"
-    labels:
-      - "chore"
-      - "dependencies"
+    when:
+      labels:
+        - "chore"
+        - "dependencies"
+  - type: "version-resolver"
+    semver-increment: "major"
+    when:
+      labels:
+        - "feature"
+  - type: "version-resolver"
+    semver-increment: "minor"
+    when:
+      labels:
+        - "enhancement"
+  - type: "version-resolver"
+    semver-increment: "patch"
+    when:
+      labels:
+        - "fix"
+        - "bugfix"
+        - "bug"
+        - "chore"
+        - "dependencies"
 version-resolver:
-  major:
-    labels:
-      - "feature"
-  minor:
-    labels:
-      - "enhancement"
-  patch:
-    labels:
-      - "fix"
-      - "bugfix"
-      - "bug"
-      - "chore"
-      - "dependencies"
   default: patch
 template: |
   ## Changes
