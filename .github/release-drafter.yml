@@ -1,6 +1,10 @@
 name-template: "Release v$RESOLVED_VERSION"
 tag-template: "v$RESOLVED_VERSION"
 categories:
+  - title: "💥 Breaking Changes"
+    when:
+      labels:
+        - "major"
   - title: "🚀 Features"
     when:
       labels:
@@ -21,12 +25,14 @@ categories:
     semver-increment: "major"
     when:
       labels:
-        - "feature"
+        - "major"
   - type: "version-resolver"
     semver-increment: "minor"
     when:
       labels:
+        - "feature"
         - "enhancement"
+        - "minor"
   - type: "version-resolver"
     semver-increment: "patch"
     when:
@@ -36,6 +42,7 @@ categories:
         - "bug"
         - "chore"
         - "dependencies"
+        - "patch"
 version-resolver:
   default: patch
 template: |
