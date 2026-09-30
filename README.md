@@ -17,6 +17,28 @@ releases.
 This GitOps setup should be the default for all your repositories. However, if you have a special case, you can
 leave `gitops-dev`, `gitops-stage` and `gitops-prod` undefined, then those steps will be skipped.
 
+## Upgrading
+
+### From v8 to v9
+
+The `docker-registry` input was renamed to `docker-registries` to support [pushing to multiple registries](#multiple-registries).
+Rename it in your workflow; the value stays the same:
+
+```diff
+-- uses: Staffbase/gitops-github-action@v8
++- uses: Staffbase/gitops-github-action@v9
+   with:
+-    docker-registry: registry.example.com
++    docker-registries: registry.example.com
+```
+
+Workflows that never set `docker-registry` (and so used the default `registry.staffbase.com`) need no input changes;
+only bump the action reference to `@v9`.
+
+`docker-registry-api` no longer defaults to `https://registry.staffbase.com/v2/`. It is now derived from the first
+`docker-registries` entry, so a custom registry no longer needs a matching `docker-registry-api`. An explicitly set
+`docker-registry-api` keeps working as before.
+
 ## Usages
 
 ### Build, Push and Deploy Docker Image
@@ -37,7 +59,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: GitOps (build, push and deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v7.1
+        uses: Staffbase/gitops-github-action@v9
         with:
           docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
@@ -69,7 +91,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: GitOps (build and push a new Docker image)
-        uses: Staffbase/gitops-github-action@v7.1
+        uses: Staffbase/gitops-github-action@v9
         with:
           docker-username: ${{ vars.HARBOR_USERNAME }}
           docker-password: ${{ secrets.HARBOR_PASSWORD }}
@@ -94,7 +116,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: GitOps (deploy a new Docker image)
-        uses: Staffbase/gitops-github-action@v7.1
+        uses: Staffbase/gitops-github-action@v9
         with:
           docker-image: private/my-service
           gitops-token: ${{ secrets.GITOPS_TOKEN }}
@@ -161,7 +183,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: GitOps (build and push by digest)
-        uses: Staffbase/gitops-github-action@v7.1
+        uses: Staffbase/gitops-github-action@v9
         with:
           multiarch-mode: build
           docker-username: ${{ vars.HARBOR_USERNAME }}
@@ -177,7 +199,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: GitOps (merge manifests and deploy)
-        uses: Staffbase/gitops-github-action@v7.1
+        uses: Staffbase/gitops-github-action@v9
         with:
           multiarch-mode: merge
           docker-username: ${{ vars.HARBOR_USERNAME }}
@@ -201,7 +223,7 @@ Pass the same `docker-*` inputs to both jobs — the merge job recomputes the ta
 
 ```yaml
 - name: GitOps
-  uses: Staffbase/gitops-github-action@v7.1
+  uses: Staffbase/gitops-github-action@v9
   with:
     docker-registries: |-
       registry.staffbase.com|${{ vars.HARBOR_USERNAME }}|${{ secrets.HARBOR_PASSWORD }}
@@ -353,3 +375,6 @@ This project is licensed under the Apache-2.0 License - see the [LICENSE.md](LIC
 
 Go to the release overview page and publish the draft release with a new version number. Make sure to update the
 floating version commit.
+
+PRs that break existing callers get the `major` label and an entry under [Upgrading](#upgrading). Before publishing
+a major release, add a link to that entry at the top of the release notes.
