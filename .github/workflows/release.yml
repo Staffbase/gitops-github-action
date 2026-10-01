@@ -8,7 +8,7 @@ on:
 
 jobs:
   release:
-    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@a38088448bfd106dbabe9f3b88f8cc8c88aaec83 # v15.1.1
+    uses: Staffbase/gha-workflows/.github/workflows/template_release_drafter.yml@6e6c062d84ba4422de03d07b019b75c345f3606e # v17.1.0
     secrets:
       client_id: ${{ vars.STAFFBASE_ACTIONS_CLIENT_ID }}
       private_key: ${{ secrets.STAFFBASE_ACTIONS_PRIVATE_KEY }}
