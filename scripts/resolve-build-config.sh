@@ -9,9 +9,11 @@
 # Required env vars: RUNNER_ARCH
 # Optional env vars: INPUT_MULTIARCH_MODE, INPUT_DOCKER_BUILD_PLATFORMS,
 #                    INPUT_DOCKER_BUILD_OUTPUTS, INPUT_TAG_LIST, INPUT_PUSH,
-#                    INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE
+#                    INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE,
+#                    INPUT_DOCKER_BUILD_NO_CACHE
 #
-# Outputs (via GITHUB_OUTPUT): arch, platforms, tags, build_outputs
+# Outputs (via GITHUB_OUTPUT): arch, platforms, tags, build_outputs,
+#                             cache_suffix, cache_from, cache_to
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
@@ -65,8 +67,21 @@ if [[ "$MODE" == "build" ]]; then
   CACHE_SUFFIX=",scope=${ARCH}"
 fi
 
+CACHE_FROM=""
+CACHE_TO=""
+# Fresh scheduled rebuilds have no use for external cache transfers.
+if [[ "${INPUT_DOCKER_BUILD_NO_CACHE:-false}" == "false" ]]; then
+  CACHE_FROM="type=gha${CACHE_SUFFIX}"
+  CACHE_TO="type=gha,mode=max${CACHE_SUFFIX}"
+elif [[ "$INPUT_DOCKER_BUILD_NO_CACHE" != "true" ]]; then
+  log_error "docker-build-no-cache must be 'true' or 'false'."
+  exit 1
+fi
+
 set_output "arch" "$ARCH"
 set_output "cache_suffix" "$CACHE_SUFFIX"
+set_output "cache_from" "$CACHE_FROM"
+set_output "cache_to" "$CACHE_TO"
 set_output "platforms" "$PLATFORMS"
 set_output "tags" "$TAGS"
 set_output "build_outputs" "$BUILD_OUTPUTS"

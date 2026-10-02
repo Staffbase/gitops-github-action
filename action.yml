@@ -55,6 +55,10 @@ inputs:
     description: "Generate provenance attestation for the build"
     required: false
     default: 'false'
+  docker-build-no-cache:
+    description: 'Re-execute Dockerfile steps without cached build results or external cache import/export. Base images are always checked for updates independently of this setting.'
+    required: false
+    default: 'false'
   docker-build-outputs:
     description: "Custom output destinations (e.g., type=registry,push=true,compression=zstd,force-compression=true). When set, this replaces the default push behavior - include push=true if pushing is desired."
     required: false
@@ -169,6 +173,7 @@ runs:
         INPUT_MULTIARCH_MODE: ${{ inputs.multiarch-mode }}
         INPUT_DOCKER_BUILD_PLATFORMS: ${{ inputs.docker-build-platforms }}
         INPUT_DOCKER_BUILD_OUTPUTS: ${{ inputs.docker-build-outputs }}
+        INPUT_DOCKER_BUILD_NO_CACHE: ${{ inputs.docker-build-no-cache }}
         INPUT_DOCKER_REGISTRY: ${{ steps.preparation.outputs.primary_registry }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG_LIST: ${{ steps.preparation.outputs.tag_list }}
@@ -214,8 +219,11 @@ runs:
         secrets: ${{ inputs.docker-build-secrets }}
         secret-files: ${{ inputs.docker-build-secret-files }}
         platforms: ${{ steps.build_config.outputs.platforms }}
-        cache-from: type=gha${{ steps.build_config.outputs.cache_suffix }}
-        cache-to: type=gha,mode=max${{ steps.build_config.outputs.cache_suffix }}
+        # Floating hardened base tags can receive patches without changing name.
+        pull: true
+        no-cache: ${{ inputs.docker-build-no-cache }}
+        cache-from: ${{ steps.build_config.outputs.cache_from }}
+        cache-to: ${{ steps.build_config.outputs.cache_to }}
         provenance: ${{ inputs.docker-build-provenance }}
         outputs: ${{ steps.build_config.outputs.build_outputs }}
 
