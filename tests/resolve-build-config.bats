@@ -117,6 +117,8 @@ teardown() {
     export INPUT_MULTIARCH_MODE="$mode"
     for arch in X64 ARM64; do
       export RUNNER_ARCH="$arch"
+      # assert_output_value reads the first match, so start each run clean
+      : > "$GITHUB_OUTPUT"
       run "$SCRIPT"
       assert_success
       assert_output_value "cache_from" ""
