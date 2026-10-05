@@ -135,6 +135,9 @@ outputs:
   docker-digest:
     description: 'Docker digest'
     value: ${{ steps.docker_merge.outputs.digest || steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
+  gitops-tag:
+    description: 'Non-timestamped tag written to the GitOps repo; push it when building outside the action so the release retag finds the image'
+    value: ${{ steps.preparation.outputs.gitops_tag }}
 
 runs:
   using: "composite"

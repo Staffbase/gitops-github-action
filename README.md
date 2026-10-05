@@ -282,6 +282,7 @@ Notes:
 |-----------------|---------------------|
 | `docker-digest`  | Digest of the image                                                             |
 | `docker-tag`     | Tag of the image                                                                |
+| `gitops-tag`     | Non-timestamped tag (see [GitOps tag](#gitops-tag)). Push it alongside `docker-tag` when building the image outside the action, otherwise the release retag can't find it |
 
 ## Image tags & Flux image automation
 
