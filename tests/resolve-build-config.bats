@@ -27,6 +27,8 @@ teardown() {
   assert_output_value "tags" "registry.example.com/private/my-service:dev-abcdef12"
   assert_output_value "build_outputs" ""
   assert_output_value "cache_suffix" ""
+  assert_output_value "cache_from" "type=gha"
+  assert_output_value "cache_to" "type=gha,mode=max"
 }
 
 @test "default mode keeps custom docker-build-outputs" {
@@ -54,6 +56,8 @@ teardown() {
   assert_output_value "tags" ""
   assert_output_value "build_outputs" "type=image,name=registry.example.com/private/my-service,push-by-digest=true,name-canonical=true,push=true"
   assert_output_value "cache_suffix" ",scope=amd64"
+  assert_output_value "cache_from" "type=gha,scope=amd64"
+  assert_output_value "cache_to" "type=gha,mode=max,scope=amd64"
 }
 
 @test "build mode on ARM64 builds arm64 regardless of docker-build-platforms" {
@@ -105,4 +109,33 @@ teardown() {
   run "$SCRIPT"
   assert_failure
   assert_output --partial "Invalid multiarch-mode"
+}
+
+@test "no-cache omits external cache in single-arch and native multi-arch builds" {
+  export INPUT_DOCKER_BUILD_NO_CACHE="true"
+  for mode in "" build; do
+    export INPUT_MULTIARCH_MODE="$mode"
+    for arch in X64 ARM64; do
+      export RUNNER_ARCH="$arch"
+      # assert_output_value reads the first match, so start each run clean
+      : > "$GITHUB_OUTPUT"
+      run "$SCRIPT"
+      assert_success
+      assert_output_value "cache_from" ""
+      assert_output_value "cache_to" ""
+    done
+  done
+}
+
+@test "explicit false retains external cache and invalid no-cache values fail" {
+  export INPUT_DOCKER_BUILD_NO_CACHE="false"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "cache_from" "type=gha"
+  assert_output_value "cache_to" "type=gha,mode=max"
+
+  export INPUT_DOCKER_BUILD_NO_CACHE="yes"
+  run "$SCRIPT"
+  assert_failure
+  assert_output --partial "docker-build-no-cache must be 'true' or 'false'"
 }
