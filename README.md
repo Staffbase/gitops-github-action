@@ -152,6 +152,22 @@ Enabled by default (`deployment-labels: 'true'`). The same three values are stam
 
 > **Note:** labels are baked in at **build time**, so they are only applied on builds. Release (`v*`) and custom-tag runs that **retag** an existing image instead of rebuilding (see [Image tags](#image-tags--flux-image-automation)) do not get fresh labels — the retagged image keeps the labels from the branch build it was promoted from. This feature is independent of the annotations above; enable either, both, or neither.
 
+### Fresh builds
+
+Every build checks all referenced base images for updates (`pull: true`). Floating
+tags pick up new base digests; digest-pinned references remain pinned. Build caching
+is still enabled by default when the base image and build inputs are unchanged.
+
+Set `docker-build-no-cache: 'true'` for scheduled package or virus-signature refreshes.
+This re-executes Dockerfile steps and skips external cache import/export in both
+single-arch and multi-arch builds. It increases build time and download traffic;
+retag-only runs are unaffected.
+
+```yaml
+with:
+  docker-build-no-cache: 'true'
+```
+
 ### Multi-Arch Images
 
 Our recovery/failover regions have no ARM capacity, so images deployed there must ship both `linux/amd64` and `linux/arm64`. The action never cross-compiles or emulates: each architecture is built natively on its own runner, and the results are combined into one manifest list afterwards.
@@ -262,6 +278,7 @@ Notes:
 | `multiarch-artifact-name`   | Base name of the artifact carrying the per-architecture digests between the build and merge jobs (the architecture is appended)               | `docker-digests`                                     |
 | `multiarch-digests-path`    | Directory holding the per-architecture digest files                                                                            | `/tmp/gitops-action-digests`                         |
 | `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `false`                                              |
+| `docker-build-no-cache`    | Re-execute Dockerfile steps and skip external cache import/export. Base images are always checked for updates. | `false` |
 | `docker-disable-retagging`  | Disables retagging of existing images and run a new build instead                                                              | `false`                                              |
 | `deployment-annotations`    | Stamp deployment-tracking annotations (`deploy.staffbase.com/*`) onto updated GitOps manifests. See [Deployment tracking annotations](#deployment-tracking-annotations) | `true`                      |
 | `deployment-domain`         | Key namespace for deployment-tracking metadata. Used verbatim for annotation keys (`<domain>/...`) and reversed to reverse-DNS for label keys (`com.staffbase.deploy.*`) | `deploy.staffbase.com`  |
