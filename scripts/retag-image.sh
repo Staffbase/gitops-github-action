@@ -11,6 +11,8 @@
 #                    INPUT_DOCKER_REGISTRY_API, INPUT_DOCKER_IMAGE, INPUT_TAG,
 #                    INPUT_LATEST
 # Optional env vars: INPUT_DOCKER_USERNAME, INPUT_DOCKER_PASSWORD,
+#                    INPUT_RETAG_DIGEST (sha256:<64 hex>; retag exactly this
+#                    manifest instead of resolving the master-/main- tag),
 #                    RETAG_TIMEOUT_SECONDS (default: 300),
 #                    RETAG_POLL_INTERVAL (default: 10)
 #
@@ -56,20 +58,40 @@ TIMEOUT="${RETAG_TIMEOUT_SECONDS:-300}"
 POLL_INTERVAL="${RETAG_POLL_INTERVAL:-10}"
 
 CHECK_EXISTING_TAGS="master-${GITHUB_SHA::8} main-${GITHUB_SHA::8}"
+RETAG_DIGEST="${INPUT_RETAG_DIGEST:-}"
+if [[ -n "$RETAG_DIGEST" ]]; then
+  if [[ ! "$RETAG_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    log_error "INPUT_RETAG_DIGEST must be sha256:<64 lowercase hex characters>"
+    exit 1
+  fi
+  # A caller that verified a digest gets exactly that manifest; a tag could be moved after verification.
+  CHECK_EXISTING_TAGS="$RETAG_DIGEST"
+fi
 ACCEPT_HEADER="application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json"
 
 echo "CHECK_EXISTING_TAGS: ${CHECK_EXISTING_TAGS}"
-echo "Check if an image already exists for ${INPUT_DOCKER_IMAGE}:main|master-${GITHUB_SHA::8}"
+echo "Check if an image already exists for ${INPUT_DOCKER_IMAGE} (${CHECK_EXISTING_TAGS// /, })"
 
 retag_manifest() {
   local target_tag="$1"
   local manifest="$2"
   local content_type="$3"
+  local digest_args=()
+  [[ -z "$RETAG_DIGEST" ]] || digest_args=(-D put-headers.txt)
   curl --fail-with-body -X PUT \
     -H "Content-Type: ${content_type}" \
     "${AUTH_ARGS[@]}" \
+    ${digest_args[@]+"${digest_args[@]}"} \
     -d "${manifest}" \
     "${INPUT_DOCKER_REGISTRY_API}${INPUT_DOCKER_IMAGE}/manifests/${target_tag}"
+  if [[ -n "$RETAG_DIGEST" ]]; then
+    local stored
+    stored=$(grep -i "^Docker-Content-Digest:" put-headers.txt | cut -d' ' -f2 | tr -d '\r' || true)
+    if [[ "$stored" != "$RETAG_DIGEST" ]]; then
+      log_error "${INPUT_DOCKER_IMAGE}:${target_tag} was stored as ${stored:-an unknown digest}, not ${RETAG_DIGEST}"
+      exit 1
+    fi
+  fi
 }
 
 foundImage=false
@@ -97,6 +119,10 @@ while [ $SECONDS -lt $end ]; do
       foundImage=true
       DETECTED_CONTENT_TYPE=$(grep -i "^Content-Type:" headers.txt | cut -d' ' -f2 | tr -d '\r')
       DIGEST=$(grep -i "^Docker-Content-Digest:" headers.txt | cut -d' ' -f2 | tr -d '\r')
+      if [[ -n "$RETAG_DIGEST" && "$DIGEST" != "$RETAG_DIGEST" ]]; then
+        log_error "The registry returned ${DIGEST:-no digest} for ${INPUT_DOCKER_IMAGE}@${RETAG_DIGEST}"
+        exit 1
+      fi
       break 2
     fi
   done
@@ -106,7 +132,7 @@ while [ $SECONDS -lt $end ]; do
 done
 
 if [[ $foundImage == false ]]; then
-  log_error "No image found for ${INPUT_DOCKER_IMAGE}:main|master-${GITHUB_SHA::8} within ${TIMEOUT} seconds"
+  log_error "No image found for ${INPUT_DOCKER_IMAGE} (${CHECK_EXISTING_TAGS// /, }) within ${TIMEOUT} seconds"
   exit 1
 fi
 

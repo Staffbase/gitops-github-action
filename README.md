@@ -279,6 +279,7 @@ Notes:
 | `multiarch-digests-path`    | Directory holding the per-architecture digest files                                                                            | `/tmp/gitops-action-digests`                         |
 | `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `false`                                              |
 | `docker-build-no-cache`    | Re-execute Dockerfile steps and skip external cache import/export. Base images are always checked for updates. | `false` |
+| `docker-retag-digest`       | Digest (`sha256:…`) to retag on a release or custom tag instead of whatever `main-<sha8>`/`master-<sha8>` points to at retag time, so a caller retags exactly the digest it verified |                                                      |
 | `docker-disable-retagging`  | Disables retagging of existing images and run a new build instead                                                              | `false`                                              |
 | `deployment-annotations`    | Stamp deployment-tracking annotations (`deploy.staffbase.com/*`) onto updated GitOps manifests. See [Deployment tracking annotations](#deployment-tracking-annotations) | `true`                      |
 | `deployment-domain`         | Key namespace for deployment-tracking metadata. Used verbatim for annotation keys (`<domain>/...`) and reversed to reverse-DNS for label keys (`com.staffbase.deploy.*`) | `deploy.staffbase.com`  |

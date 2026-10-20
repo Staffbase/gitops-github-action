@@ -159,3 +159,76 @@ MOCK_EOF
   run test -f "${TEST_TEMP_DIR}/docker_calls.log"
   assert_failure
 }
+
+create_digest_curl_mock() {
+  local returned_digest="$1"
+  local stored_digest="${2:-$1}"
+  cat > "${TEST_TEMP_DIR}/mocks/curl" << MOCK_EOF
+#!/usr/bin/env bash
+echo "curl \$*" >> "${TEST_TEMP_DIR}/curl_calls.log"
+case "\$*" in
+  *"--fail-with-body"*"-X PUT"*)
+    headers_file=\$(echo "\$*" | sed 's/.*-D \([^ ]*\).*/\1/')
+    printf 'Docker-Content-Digest: %s\n' "$stored_digest" > "\$headers_file"
+    echo "PUT OK"
+    ;;
+  *manifests/sha256:*)
+    headers_file=\$(echo "\$*" | sed 's/.*-D \([^ ]*\).*/\1/')
+    printf 'Content-Type: application/vnd.oci.image.index.v1+json\nDocker-Content-Digest: %s\n' "$returned_digest" > "\$headers_file"
+    echo '{"schemaVersion": 2}'
+    ;;
+  *)
+    echo '{"errors": [{"code": "MANIFEST_UNKNOWN"}]}'
+    ;;
+esac
+MOCK_EOF
+  chmod +x "${TEST_TEMP_DIR}/mocks/curl"
+}
+
+@test "retags exactly the given digest without resolving the main/master tag" {
+  digest="sha256:$(printf 'a%.0s' {1..64})"
+  export INPUT_RETAG_DIGEST="$digest"
+  create_digest_curl_mock "$digest"
+
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "digest" "$digest"
+
+  run cat "${TEST_TEMP_DIR}/curl_calls.log"
+  assert_output --partial "my-service/manifests/${digest}"
+  refute_output --partial "manifests/main-"
+  refute_output --partial "manifests/master-"
+  assert_output --partial "my-service/manifests/1.0.0"
+  assert_output --partial "my-service/manifests/latest"
+}
+
+@test "fails without retagging when the registry returns another digest" {
+  export INPUT_RETAG_DIGEST="sha256:$(printf 'a%.0s' {1..64})"
+  create_digest_curl_mock "sha256:$(printf 'b%.0s' {1..64})"
+
+  run "$SCRIPT"
+  assert_failure
+  assert_output --partial "The registry returned sha256:bbbb"
+
+  run cat "${TEST_TEMP_DIR}/curl_calls.log"
+  refute_output --partial "-X PUT"
+}
+
+@test "rejects a malformed digest before any registry call" {
+  export INPUT_RETAG_DIGEST="main-abcdef12"
+  create_digest_curl_mock "unused"
+
+  run "$SCRIPT"
+  assert_failure
+  assert_output --partial "INPUT_RETAG_DIGEST must be sha256"
+  [ ! -e "${TEST_TEMP_DIR}/curl_calls.log" ]
+}
+
+@test "fails when the registry stores the retagged manifest under another digest" {
+  export INPUT_RETAG_DIGEST="sha256:$(printf 'a%.0s' {1..64})"
+  create_digest_curl_mock "$INPUT_RETAG_DIGEST" "sha256:$(printf 'c%.0s' {1..64})"
+
+  run "$SCRIPT"
+  assert_failure
+  assert_output --partial "my-service:1.0.0 was stored as sha256:cccc"
+}

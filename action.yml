@@ -74,6 +74,10 @@ inputs:
     description: 'Directory holding the per-architecture digest files.'
     required: false
     default: '/tmp/gitops-action-digests'
+  docker-retag-digest:
+    description: 'Digest (sha256:<64 hex>) of the image to retag on a release or custom tag. When set, exactly this manifest is retagged instead of whatever main-<sha8>/master-<sha8> points to at retag time, so a caller can retag the digest it verified. Optional; defaults to the tag lookup.'
+    required: false
+    default: ''
   docker-disable-retagging:
     description: 'Disable retagging of existing images'
     required: false
@@ -281,6 +285,7 @@ runs:
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG: ${{ steps.preparation.outputs.tag }}
         INPUT_LATEST: ${{ steps.preparation.outputs.latest }}
+        INPUT_RETAG_DIGEST: ${{ inputs.docker-retag-digest }}
       run: ${{ github.action_path }}/scripts/retag-image.sh
 
     - name: Checkout GitOps Repository
