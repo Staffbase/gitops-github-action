@@ -72,17 +72,29 @@ ACCEPT_HEADER="application/vnd.docker.distribution.manifest.v2+json, application
 echo "CHECK_EXISTING_TAGS: ${CHECK_EXISTING_TAGS}"
 echo "Check if an image already exists for ${INPUT_DOCKER_IMAGE} (${CHECK_EXISTING_TAGS// /, })"
 
+# The manifest is kept in a file and uploaded with --data-binary so its bytes,
+# and therefore its digest, stay exactly as fetched.
+MANIFEST_FILE="$(mktemp)"
+trap 'rm -f "$MANIFEST_FILE"' EXIT
+
+sha256_file() {
+  if command -v sha256sum &>/dev/null; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+
 retag_manifest() {
   local target_tag="$1"
-  local manifest="$2"
-  local content_type="$3"
+  local content_type="$2"
   local digest_args=()
   [[ -z "$RETAG_DIGEST" ]] || digest_args=(-D put-headers.txt)
   curl --fail-with-body -X PUT \
     -H "Content-Type: ${content_type}" \
     "${AUTH_ARGS[@]}" \
     ${digest_args[@]+"${digest_args[@]}"} \
-    -d "${manifest}" \
+    --data-binary "@${MANIFEST_FILE}" \
     "${INPUT_DOCKER_REGISTRY_API}${INPUT_DOCKER_IMAGE}/manifests/${target_tag}"
   if [[ -n "$RETAG_DIGEST" ]]; then
     local stored
@@ -97,7 +109,6 @@ retag_manifest() {
 foundImage=false
 DETECTED_CONTENT_TYPE=""
 DIGEST=""
-MANIFEST=""
 
 end=$((SECONDS + TIMEOUT))
 attempt=1
@@ -106,12 +117,13 @@ while [ $SECONDS -lt $end ]; do
   echo "Poll attempt ${attempt} (${remaining}s remaining)..."
 
   for tag in $CHECK_EXISTING_TAGS; do
-    MANIFEST=$(curl -s -D headers.txt \
+    : > "$MANIFEST_FILE"
+    curl -s -D headers.txt -o "$MANIFEST_FILE" \
       -H "Accept: ${ACCEPT_HEADER}" \
       "${AUTH_ARGS[@]}" \
-      "${INPUT_DOCKER_REGISTRY_API}${INPUT_DOCKER_IMAGE}/manifests/${tag}")
+      "${INPUT_DOCKER_REGISTRY_API}${INPUT_DOCKER_IMAGE}/manifests/${tag}"
 
-    if [[ $MANIFEST == *"errors"* ]]; then
+    if grep -q "errors" "$MANIFEST_FILE"; then
       echo "No image found for ${INPUT_DOCKER_IMAGE}:${tag}"
       continue
     else
@@ -121,6 +133,10 @@ while [ $SECONDS -lt $end ]; do
       DIGEST=$(grep -i "^Docker-Content-Digest:" headers.txt | cut -d' ' -f2 | tr -d '\r')
       if [[ -n "$RETAG_DIGEST" && "$DIGEST" != "$RETAG_DIGEST" ]]; then
         log_error "The registry returned ${DIGEST:-no digest} for ${INPUT_DOCKER_IMAGE}@${RETAG_DIGEST}"
+        exit 1
+      fi
+      if [[ -n "$RETAG_DIGEST" && "sha256:$(sha256_file "$MANIFEST_FILE")" != "$RETAG_DIGEST" ]]; then
+        log_error "The manifest bytes fetched for ${INPUT_DOCKER_IMAGE}@${RETAG_DIGEST} do not match that digest"
         exit 1
       fi
       break 2
@@ -139,8 +155,8 @@ fi
 echo "Retagging image with release version and :latest tags for ${INPUT_DOCKER_IMAGE}"
 echo "Using Content-Type: ${DETECTED_CONTENT_TYPE}"
 
-retag_manifest "$INPUT_TAG" "$MANIFEST" "$DETECTED_CONTENT_TYPE"
-retag_manifest "$INPUT_LATEST" "$MANIFEST" "$DETECTED_CONTENT_TYPE"
+retag_manifest "$INPUT_TAG" "$DETECTED_CONTENT_TYPE"
+retag_manifest "$INPUT_LATEST" "$DETECTED_CONTENT_TYPE"
 
 if [[ ${#REGISTRIES[@]} -gt 1 ]]; then
   require_tool docker
