@@ -64,6 +64,7 @@ if [[ -n "$RETAG_DIGEST" ]]; then
     log_error "INPUT_RETAG_DIGEST must be sha256:<64 lowercase hex characters>"
     exit 1
   fi
+  command -v sha256sum &>/dev/null || require_tool shasum
   # A caller that verified a digest gets exactly that manifest; a tag could be moved after verification.
   CHECK_EXISTING_TAGS="$RETAG_DIGEST"
 fi
