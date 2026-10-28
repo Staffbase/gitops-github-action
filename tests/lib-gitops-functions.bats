@@ -18,6 +18,7 @@ setup() {
   export INPUT_GITOPS_ORGANIZATION="Staffbase"
   export INPUT_GITOPS_REPOSITORY="mops"
   export IMAGE="registry.staffbase.com/my-service:main-abcdef12"
+  export INPUT_DEPLOYMENT_ANNOTATIONS="true"
 
   # Create mock yq
   mkdir -p "${TEST_TEMP_DIR}/mocks"
@@ -147,10 +148,10 @@ EOF
   ! grep -qE 'deploy\.staffbase\.com/(repo|sha)"' "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
-@test "update_file writes annotations when INPUT_DEPLOYMENT_ANNOTATIONS is unset (default on)" {
+@test "update_file skips annotations when INPUT_DEPLOYMENT_ANNOTATIONS is unset (default off)" {
   unset INPUT_DEPLOYMENT_ANNOTATIONS
   update_file "deployment.yaml" "spec.image" "$IMAGE"
-  grep -q 'deploy.staffbase.com/repositoryFullName' "${TEST_TEMP_DIR}/yq_calls.log"
+  ! grep -q 'deploy.staffbase.com/' "${TEST_TEMP_DIR}/yq_calls.log"
 }
 
 @test "update_file skips annotations when INPUT_DEPLOYMENT_ANNOTATIONS is false" {

@@ -130,7 +130,7 @@ jobs:
 
 ### Deployment tracking annotations
 
-By default (`deployment-annotations: 'true'`), whenever the action updates a GitOps file it stamps the following annotations onto the manifest's `metadata.annotations`:
+Disabled by default. With `deployment-annotations: 'true'`, whenever the action updates a GitOps file it stamps the following annotations onto the manifest's `metadata.annotations`:
 
 | Annotation | Value |
 |------------|-------|
@@ -138,7 +138,7 @@ By default (`deployment-annotations: 'true'`), whenever the action updates a Git
 | `deploy.staffbase.com/commitSha` | The commit SHA being deployed (`$GITHUB_SHA`) |
 | `deploy.staffbase.com/version` | The image tag written to the GitOps repo — always the **non-timestamped** tag: `dev-<short-sha>` on `dev`, `main-<short-sha>` on `main`, `master-<short-sha>` on `master`, the version without the leading `v` on `v*` tag pushes, and the tag name on other tag pushes. See [GitOps tag](#gitops-tag) below |
 
-These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names. `flux-deployment-reporter` no longer reads them: it takes the commit and repository from the image's [deployment tracking labels](#deployment-tracking-labels) instead. Set `deployment-annotations: 'false'` to skip them. The `deploy.staffbase.com` namespace is configurable via [`deployment-domain`](#inputs).
+These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names. `flux-deployment-reporter` no longer reads them: it takes the commit and repository from the image's [deployment tracking labels](#deployment-tracking-labels) instead. With Flux image automation updating the tags, the action no longer touches most manifests, so the annotations would describe old deployments. That is why they are off by default. The `deploy.staffbase.com` namespace is configurable via [`deployment-domain`](#inputs).
 
 ### Deployment tracking labels
 
@@ -282,7 +282,7 @@ Notes:
 | `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `false`                                              |
 | `docker-build-no-cache`    | Re-execute Dockerfile steps and skip external cache import/export. Base images are always checked for updates. | `false` |
 | `docker-disable-retagging`  | Disables retagging of existing images and run a new build instead                                                              | `false`                                              |
-| `deployment-annotations`    | Stamp deployment-tracking annotations (`deploy.staffbase.com/*`) onto updated GitOps manifests. See [Deployment tracking annotations](#deployment-tracking-annotations) | `true`                      |
+| `deployment-annotations`    | Stamp deployment-tracking annotations (`deploy.staffbase.com/*`) onto updated GitOps manifests. See [Deployment tracking annotations](#deployment-tracking-annotations) | `false`                     |
 | `deployment-domain`         | Key namespace for deployment-tracking metadata. Used verbatim for annotation keys (`<domain>/...`) and reversed to reverse-DNS for label keys (`com.staffbase.deploy.*`) | `deploy.staffbase.com`  |
 | `deployment-labels`         | Stamp deployment-tracking labels (`com.staffbase.deploy.*`) onto the built image. Only applied on builds, not on release/custom retags. See [Deployment tracking labels](#deployment-tracking-labels) | `true`              |
 | `gitops-organization`       | GitHub Organization for GitOps                                                                                                 | `Staffbase`                                          |

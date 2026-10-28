@@ -79,9 +79,9 @@ inputs:
     required: false
     default: 'false'
   deployment-annotations:
-    description: 'Stamp deployment-tracking annotations (deploy.staffbase.com/repositoryFullName, /commitSha, /version) onto the updated GitOps manifests. Enabled by default; set to ''false'' to skip.'
+    description: 'Stamp deployment-tracking annotations (deploy.staffbase.com/repositoryFullName, /commitSha, /version) onto the updated GitOps manifests. Disabled by default; set to ''true'' to enable.'
     required: false
-    default: 'true'
+    default: 'false'
   deployment-domain:
     description: 'Domain used as the key namespace for deployment-tracking metadata. Applied verbatim to GitOps annotation keys (<domain>/repositoryFullName) and reversed to reverse-DNS for image label keys (deploy.staffbase.com -> com.staffbase.deploy.repositoryFullName).'
     required: false
