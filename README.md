@@ -138,7 +138,7 @@ By default (`deployment-annotations: 'true'`), whenever the action updates a Git
 | `deploy.staffbase.com/commitSha` | The commit SHA being deployed (`$GITHUB_SHA`) |
 | `deploy.staffbase.com/version` | The image tag written to the GitOps repo — always the **non-timestamped** tag: `dev-<short-sha>` on `dev`, `main-<short-sha>` on `main`, `master-<short-sha>` on `master`, the version without the leading `v` on `v*` tag pushes, and the tag name on other tag pushes. See [GitOps tag](#gitops-tag) below |
 
-These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names and are read by `flux-deployment-reporter` to report deployments to Swarmia once Flux finishes reconciling. Set `deployment-annotations: 'false'` to skip them. The `deploy.staffbase.com` namespace is configurable via [`deployment-domain`](#inputs).
+These keys mirror the [Swarmia Deployment API](https://help.swarmia.com/settings/organization/configuring-deployments-in-swarmia) field names. `flux-deployment-reporter` no longer reads them: it takes the commit and repository from the image's [deployment tracking labels](#deployment-tracking-labels) instead. Set `deployment-annotations: 'false'` to skip them. The `deploy.staffbase.com` namespace is configurable via [`deployment-domain`](#inputs).
 
 ### Deployment tracking labels
 
@@ -149,6 +149,8 @@ Enabled by default (`deployment-labels: 'true'`). The same three values are stam
 | `com.staffbase.deploy.repositoryFullName` | The source repository in `owner/repo` form (`$GITHUB_REPOSITORY`) |
 | `com.staffbase.deploy.commitSha` | The commit SHA being deployed (`$GITHUB_SHA`) |
 | `com.staffbase.deploy.version` | The **non-timestamped** GitOps tag (same value as the `deploy.staffbase.com/version` annotation) |
+
+`flux-deployment-reporter` reads `commitSha` and `repositoryFullName` from these labels to report deployments to Swarmia, for workloads labelled `deploy.staffbase.com/report: "true"`. It reports the image tag the workload runs as the version, not the `version` label.
 
 > **Note:** labels are baked in at **build time**, so they are only applied on builds. Release (`v*`) and custom-tag runs that **retag** an existing image instead of rebuilding (see [Image tags](#image-tags--flux-image-automation)) do not get fresh labels — the retagged image keeps the labels from the branch build it was promoted from. This feature is independent of the annotations above; enable either, both, or neither.
 
