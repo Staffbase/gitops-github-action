@@ -313,18 +313,16 @@ runs:
         INPUT_DEPLOYMENT_DOMAIN: ${{ inputs.deployment-domain }}
       run: ${{ github.action_path }}/scripts/update-gitops.sh
 
-    - name: Emit Image Build Event to Upwind.io
-      env:
-        UPWIND_CLIENT_SECRET: ${{ inputs.upwind-client-secret }}
-      if: "${{ inputs.upwind-client-id != '' && env.UPWIND_CLIENT_SECRET != '' && inputs.upwind-organization-id != '' && inputs.multiarch-mode != 'build' }}"
-      uses: upwindsecurity/create-image-build-event-action@3099fc1e1e002c6c2d7b7c635699944a708d260d # v3
+    - name: Emit Image Publish Event to Upwind.io
+      if: "${{ inputs.upwind-client-id != '' && inputs.upwind-client-secret != '' && steps.preparation.outputs.push == 'true' && inputs.multiarch-mode != 'build' }}"
+      uses: upwindsecurity/shiftleft-create-image-publish-event-action@e21e33527930216fc02b6ba0aa33de864e1cd316 # v1.2.0
       continue-on-error: true
       with:
-        image: ${{ inputs.docker-image }}
-        image_sha: ${{ steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
         upwind_client_id: ${{ inputs.upwind-client-id }}
-        upwind_client_secret: ${{ env.UPWIND_CLIENT_SECRET }}
-        upwind_organization_id: ${{ inputs.upwind-organization-id }}
+        upwind_client_secret: ${{ inputs.upwind-client-secret }}
+        docker_image: ${{ steps.preparation.outputs.primary_registry }}/${{ inputs.docker-image }}${{ (steps.docker_merge.outputs.digest || steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest) && format('@{0}', steps.docker_merge.outputs.digest || steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest) || format(':{0}', steps.preparation.outputs.tag) }}
+        docker_user: ${{ steps.preparation.outputs.primary_username }}
+        docker_password: ${{ steps.preparation.outputs.primary_password }}
 
 branding:
   icon: 'git-merge'
