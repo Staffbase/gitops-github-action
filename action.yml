@@ -121,9 +121,6 @@ inputs:
   upwind-client-id:
     description: 'Upwind Client ID'
     required: false
-  upwind-organization-id:
-    description: 'Upwind Organization ID'
-    required: false
   upwind-client-secret:
     description: 'Upwind Client Secret'
     required: false
@@ -314,13 +311,14 @@ runs:
       run: ${{ github.action_path }}/scripts/update-gitops.sh
 
     - name: Emit Image Publish Event to Upwind.io
-      if: "${{ inputs.upwind-client-id != '' && inputs.upwind-client-secret != '' && steps.preparation.outputs.push == 'true' && inputs.multiarch-mode != 'build' }}"
+      if: "${{ inputs.upwind-client-id != '' && inputs.upwind-client-secret != '' && (steps.docker_merge.outputs.digest || steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest) != '' && inputs.multiarch-mode != 'build' }}"
       uses: upwindsecurity/shiftleft-create-image-publish-event-action@e21e33527930216fc02b6ba0aa33de864e1cd316 # v1.2.0
       continue-on-error: true
       with:
         upwind_client_id: ${{ inputs.upwind-client-id }}
         upwind_client_secret: ${{ inputs.upwind-client-secret }}
-        docker_image: ${{ steps.preparation.outputs.primary_registry }}/${{ inputs.docker-image }}${{ (steps.docker_merge.outputs.digest || steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest) && format('@{0}', steps.docker_merge.outputs.digest || steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest) || format(':{0}', steps.preparation.outputs.tag) }}
+        upwind_organization_id: ${{ inputs.upwind-organization-id }} # deprecated
+        docker_image: ${{ steps.preparation.outputs.primary_registry }}/${{ inputs.docker-image }}@${{ steps.docker_merge.outputs.digest || steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest }}
         docker_user: ${{ steps.preparation.outputs.primary_username }}
         docker_password: ${{ steps.preparation.outputs.primary_password }}
 
