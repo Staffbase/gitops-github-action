@@ -6,7 +6,7 @@
 #                    INPUT_DOCKER_TAG_TIMESTAMP, INPUT_DOCKER_TAG_KEEP_V_PREFIX
 #
 # Outputs (via GITHUB_OUTPUT): build, latest, push, tag, tag_list, gitops_tag,
-#                    primary_registry, primary_registry_api, has_credentials
+#                    primary_registry, primary_registry_api, primary_username, primary_password, has_credentials
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
@@ -21,6 +21,10 @@ require_env INPUT_DOCKER_IMAGE
 
 resolve_registries
 PRIMARY_REGISTRY="$(registry_field "${REGISTRIES[0]}" 1)"
+PRIMARY_USERNAME="$(registry_field "${REGISTRIES[0]}" 2)"
+PRIMARY_PASSWORD="$(registry_field "${REGISTRIES[0]}" 3)"
+[[ -n "$PRIMARY_PASSWORD" ]] && echo "::add-mask::${PRIMARY_PASSWORD}"
+
 # Standard Docker Registry HTTP API v2 form: the literal /v2/ segment sits
 # right after the bare host, with any path prefix (e.g. GAR's
 # project/repository) carried after it, since that prefix is part of the
@@ -166,3 +170,5 @@ set_output "gitops_tag" "$GITOPS_TAG"
 set_output "primary_registry" "$PRIMARY_REGISTRY"
 set_output "primary_registry_api" "$PRIMARY_REGISTRY_API"
 set_output "has_credentials" "$HAS_CREDENTIALS"
+set_output "primary_username" "$PRIMARY_USERNAME"
+set_output "primary_password" "$PRIMARY_PASSWORD"
