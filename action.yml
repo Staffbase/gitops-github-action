@@ -312,7 +312,7 @@ runs:
 
     - name: Emit Image Publish Event to Upwind.io
       if: "${{ inputs.upwind-client-id != '' && inputs.upwind-client-secret != '' && (steps.docker_merge.outputs.digest || steps.docker_build.outputs.digest || steps.docker_retag.outputs.digest) != '' && inputs.multiarch-mode != 'build' }}"
-      uses: Staffbase/gha-workflows/.github/workflows/template_shiftleft_image_publish.yml@2d15b79eda74cee777e53ea31c374d1bdf9a7d2d
+      uses: upwindsecurity/shiftleft-create-image-publish-event-action@e21e33527930216fc02b6ba0aa33de864e1cd316 # v1.2.0
       continue-on-error: true
       with:
         upwind_client_id: ${{ inputs.upwind-client-id }}
