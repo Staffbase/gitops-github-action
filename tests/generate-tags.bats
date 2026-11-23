@@ -373,6 +373,33 @@ teardown() {
   assert_output_value "primary_registry" "registry.staffbase.com"
 }
 
+# --- primary_username / primary_password ---
+
+@test "primary credentials come from the first entry's inline credentials" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_REGISTRIES=$'europe-docker.pkg.dev/proj/repo|oauth2accesstoken|gar-token\nother.example.com|user2|pass2'
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "primary_username" "oauth2accesstoken"
+  assert_output_value "primary_password" "gar-token"
+}
+
+@test "primary_password is masked in the log" {
+  export GITHUB_REF="refs/heads/main"
+  export INPUT_DOCKER_REGISTRIES="europe-docker.pkg.dev/proj/repo|oauth2accesstoken|gar-token"
+  run "$SCRIPT"
+  assert_success
+  assert_output --partial "::add-mask::gar-token"
+}
+
+@test "primary credentials are empty when none are configured" {
+  export GITHUB_REF="refs/heads/main"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "primary_username" ""
+  assert_output_value "primary_password" ""
+}
+
 # --- has_credentials ---
 
 @test "has_credentials is false when nothing supplies a username or password" {
