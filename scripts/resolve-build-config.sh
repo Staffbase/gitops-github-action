@@ -10,8 +10,7 @@
 # Optional env vars: INPUT_MULTIARCH_MODE, INPUT_DOCKER_BUILD_PLATFORMS,
 #                    INPUT_DOCKER_BUILD_OUTPUTS, INPUT_TAG_LIST, INPUT_PUSH,
 #                    INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE,
-#                    INPUT_DOCKER_BUILD_NO_CACHE, INPUT_DOCKER_BUILD_CACHE_ROTATION,
-#                    BUILD_WEEK (ISO week override, e.g. 2026-W48; for tests)
+#                    INPUT_DOCKER_BUILD_NO_CACHE, INPUT_DOCKER_BUILD_CACHE_ROTATION
 #
 # Outputs (via GITHUB_OUTPUT): arch, platforms, tags, build_outputs,
 #                             cache_suffix, cache_from, cache_to
@@ -77,7 +76,7 @@ fi
 case "${INPUT_DOCKER_BUILD_CACHE_ROTATION:-}" in
   "") ;;
   weekly)
-    WEEK="${BUILD_WEEK:-$(date -u +%G-W%V)}"
+    WEEK="$(date -u +%G-W%V)"
     CACHE_SCOPE="${CACHE_SCOPE:-buildkit}-${WEEK}"
     ;;
   *)
