@@ -10,7 +10,7 @@
 # Optional env vars: INPUT_MULTIARCH_MODE, INPUT_DOCKER_BUILD_PLATFORMS,
 #                    INPUT_DOCKER_BUILD_OUTPUTS, INPUT_TAG_LIST, INPUT_PUSH,
 #                    INPUT_DOCKER_REGISTRY, INPUT_DOCKER_IMAGE,
-#                    INPUT_DOCKER_BUILD_NO_CACHE
+#                    INPUT_DOCKER_BUILD_NO_CACHE, INPUT_DOCKER_BUILD_CACHE_ROTATION
 #
 # Outputs (via GITHUB_OUTPUT): arch, platforms, tags, build_outputs,
 #                             cache_suffix, cache_from, cache_to
@@ -62,9 +62,32 @@ echo "Build platforms: ${PLATFORMS}"
 # CACHE_SUFFIX is appended verbatim to the type=gha cache refs. The parallel
 # matrix jobs must not share one cache scope, or they keep overwriting each
 # other's manifest. Empty outside build mode to keep the default scope.
-CACHE_SUFFIX=""
+#
+# docker-build-cache-rotation=weekly adds the ISO week to the scope, so the
+# first build of each week starts from an empty cache and re-runs layers such as
+# apt/apk upgrades; later builds in that week reuse the fresh cache. Unlike
+# no-cache, the refreshed cache is written back, so the next push on main does
+# not read stale layers again.
+CACHE_SCOPE=""
 if [[ "$MODE" == "build" ]]; then
-  CACHE_SUFFIX=",scope=${ARCH}"
+  CACHE_SCOPE="$ARCH"
+fi
+
+case "${INPUT_DOCKER_BUILD_CACHE_ROTATION:-}" in
+  "") ;;
+  weekly)
+    WEEK="$(date -u +%G-W%V)"
+    CACHE_SCOPE="${CACHE_SCOPE:-buildkit}-${WEEK}"
+    ;;
+  *)
+    log_error "docker-build-cache-rotation must be empty or 'weekly'."
+    exit 1
+    ;;
+esac
+
+CACHE_SUFFIX=""
+if [[ -n "$CACHE_SCOPE" ]]; then
+  CACHE_SUFFIX=",scope=${CACHE_SCOPE}"
 fi
 
 CACHE_FROM=""

@@ -170,6 +170,23 @@ with:
   docker-build-no-cache: 'true'
 ```
 
+#### Weekly cache rotation
+
+Layers like `apt-get upgrade` or `apk upgrade` are served from the GitHub Actions layer cache as long as the
+base image and the `RUN` line are unchanged, so OS and browser security updates never arrive. Set
+`docker-build-cache-rotation: 'weekly'` to refresh them once per ISO week without touching the Dockerfile:
+
+```yaml
+with:
+  docker-build-cache-rotation: 'weekly'
+```
+
+The week is added to the cache scope (e.g. `buildkit-2026-W48`, `amd64-2026-W48` in multi-arch builds). The first
+build of each week starts from an empty cache and re-runs every layer; later builds that week reuse the fresh
+cache. Unlike `docker-build-no-cache`, the fresh cache is written back, so the next push on `main` does not read
+stale layers again. It is off by default, and `docker-build-no-cache: 'true'` takes precedence. A repo that is
+not built for a week still keeps its old image; trigger a scheduled build for those.
+
 ### Multi-Arch Images
 
 Our recovery/failover regions have no ARM capacity, so images deployed there must ship both `linux/amd64` and `linux/arm64`. The action never cross-compiles or emulates: each architecture is built natively on its own runner, and the results are combined into one manifest list afterwards.
@@ -281,6 +298,7 @@ Notes:
 | `multiarch-digests-path`    | Directory holding the per-architecture digest files                                                                            | `/tmp/gitops-action-digests`                         |
 | `docker-build-provenance`   | Generate [provenance](https://docs.docker.com/build/attestations/slsa-provenance/) attestation for the build                   | `false`                                              |
 | `docker-build-no-cache`    | Re-execute Dockerfile steps and skip external cache import/export. Base images are always checked for updates. | `false` |
+| `docker-build-cache-rotation` | Rotate the layer cache scope: `weekly` starts a fresh cache each ISO week (refreshes apt/apk layers). Empty keeps one cache. Ignored with `docker-build-no-cache: true`. | `''` |
 | `docker-disable-retagging`  | Disables retagging of existing images and run a new build instead                                                              | `false`                                              |
 | `deployment-annotations`    | Stamp deployment-tracking annotations (`deploy.staffbase.com/*`) onto updated GitOps manifests. See [Deployment tracking annotations](#deployment-tracking-annotations) | `false`                     |
 | `deployment-domain`         | Key namespace for deployment-tracking metadata. Used verbatim for annotation keys (`<domain>/...`) and reversed to reverse-DNS for label keys (`com.staffbase.deploy.*`) | `deploy.staffbase.com`  |

@@ -14,6 +14,14 @@ setup() {
   export INPUT_PUSH="true"
 }
 
+# Pin the ISO week by putting a fake `date` first on PATH.
+stub_week() {
+  mkdir -p "${TEST_TEMP_DIR}/bin"
+  printf '#!/usr/bin/env bash\necho "%s"\n' "$1" > "${TEST_TEMP_DIR}/bin/date"
+  chmod +x "${TEST_TEMP_DIR}/bin/date"
+  export PATH="${TEST_TEMP_DIR}/bin:${PATH}"
+}
+
 teardown() {
   teardown_common
 }
@@ -138,4 +146,45 @@ teardown() {
   run "$SCRIPT"
   assert_failure
   assert_output --partial "docker-build-no-cache must be 'true' or 'false'"
+}
+
+@test "weekly cache rotation adds the ISO week to the default cache scope" {
+  export INPUT_DOCKER_BUILD_CACHE_ROTATION="weekly"
+  stub_week "2026-W48"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "cache_suffix" ",scope=buildkit-2026-W48"
+  assert_output_value "cache_from" "type=gha,scope=buildkit-2026-W48"
+  assert_output_value "cache_to" "type=gha,mode=max,scope=buildkit-2026-W48"
+}
+
+@test "weekly cache rotation keeps the per-architecture scope in build mode" {
+  export INPUT_DOCKER_BUILD_CACHE_ROTATION="weekly"
+  stub_week "2026-W48"
+  export INPUT_MULTIARCH_MODE="build"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "cache_from" "type=gha,scope=amd64-2026-W48"
+  assert_output_value "cache_to" "type=gha,mode=max,scope=amd64-2026-W48"
+}
+
+@test "weekly cache rotation uses the current ISO week" {
+  export INPUT_DOCKER_BUILD_CACHE_ROTATION="weekly"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "cache_from" "type=gha,scope=buildkit-$(date -u +%G-W%V)"
+}
+
+@test "no-cache wins over cache rotation and invalid rotation values fail" {
+  export INPUT_DOCKER_BUILD_CACHE_ROTATION="weekly"
+  export INPUT_DOCKER_BUILD_NO_CACHE="true"
+  run "$SCRIPT"
+  assert_success
+  assert_output_value "cache_from" ""
+  assert_output_value "cache_to" ""
+
+  export INPUT_DOCKER_BUILD_CACHE_ROTATION="daily"
+  run "$SCRIPT"
+  assert_failure
+  assert_output --partial "docker-build-cache-rotation must be empty or 'weekly'"
 }

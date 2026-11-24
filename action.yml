@@ -59,6 +59,10 @@ inputs:
     description: 'Re-execute Dockerfile steps without cached build results or external cache import/export. Base images are always checked for updates independently of this setting.'
     required: false
     default: 'false'
+  docker-build-cache-rotation:
+    description: "Rotate the GitHub Actions layer cache so OS package layers (apt/apk upgrade) are refreshed. Empty (default) keeps one cache forever; 'weekly' starts a fresh cache scope each ISO week. Ignored when docker-build-no-cache is true."
+    required: false
+    default: ''
   docker-build-outputs:
     description: "Custom output destinations (e.g., type=registry,push=true,compression=zstd,force-compression=true). When set, this replaces the default push behavior - include push=true if pushing is desired."
     required: false
@@ -174,6 +178,7 @@ runs:
         INPUT_DOCKER_BUILD_PLATFORMS: ${{ inputs.docker-build-platforms }}
         INPUT_DOCKER_BUILD_OUTPUTS: ${{ inputs.docker-build-outputs }}
         INPUT_DOCKER_BUILD_NO_CACHE: ${{ inputs.docker-build-no-cache }}
+        INPUT_DOCKER_BUILD_CACHE_ROTATION: ${{ inputs.docker-build-cache-rotation }}
         INPUT_DOCKER_REGISTRY: ${{ steps.preparation.outputs.primary_registry }}
         INPUT_DOCKER_IMAGE: ${{ inputs.docker-image }}
         INPUT_TAG_LIST: ${{ steps.preparation.outputs.tag_list }}
